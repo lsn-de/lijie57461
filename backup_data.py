@@ -9,17 +9,14 @@ import shutil
 import datetime
 import sqlite3
 
-# 获取持久化目录的函数
+# 获取持久化目录的函数 - 统一使用项目目录下的data文件夹
 def get_persist_dir():
-    if os.name == 'posix':  # Linux/Mac
-        # 在Linux系统中，使用用户主目录下的.ems目录
-        home_dir = os.path.expanduser('~')
-        persist_dir = os.path.join(home_dir, '.ems')
-    else:  # Windows
-        # 在Windows系统中，使用应用数据目录
-        current_dir = os.path.dirname(os.path.abspath(__file__))
-        persist_dir = os.path.join(current_dir, 'data')
-    
+    """获取持久化目录 - 统一使用项目目录下的data文件夹"""
+    # 获取当前文件所在目录（EMS1.4/）
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    # 使用项目目录下的data文件夹
+    persist_dir = os.path.join(current_dir, 'data')
+
     # 确保持久化目录存在
     os.makedirs(persist_dir, exist_ok=True)
     return persist_dir

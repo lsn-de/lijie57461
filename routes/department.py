@@ -22,52 +22,55 @@ def department():
 @login_required
 def get_department_records():
     """获取部门管理记录"""
-    # 仅管理员可见
-    if session.get('role') != 'admin':
-        return jsonify({'error': '权限不足，需要管理员权限'}), 403
-    
-    # 获取查询参数
-    page = request.args.get('page', 1, type=int)
-    page_size = request.args.get('page_size', 10, type=int)
-    department = request.args.get('department')
-    device_group = request.args.get('device_group')
-    
-    # 构建查询条件
-    conditions = []
-    params = []
-    
-    if department:
-        conditions.append("department LIKE ?")
-        params.append(f"%{department}%")
-    if device_group:
-        conditions.append("device_group LIKE ?")
-        params.append(f"%{device_group}%")
-    
-    # 构建SQL查询
-    sql = "SELECT * FROM department_management"
-    if conditions:
-        sql += " WHERE " + " AND ".join(conditions)
-    
-    # 获取总记录数
-    count_sql = "SELECT COUNT(*) FROM department_management"
-    if conditions:
-        count_sql += " WHERE " + " AND ".join(conditions)
-    total_records = DatabaseManager.execute_query(count_sql, params, fetchone=True)[0]
-    
-    # 分页查询
-    offset = (page - 1) * page_size
-    sql += " ORDER BY id DESC LIMIT ? OFFSET ?"
-    params.extend([page_size, offset])
-    
-    records = DatabaseManager.execute_query(sql, params, fetchall=True)
-    records_list = [dict(record) for record in records]
-    
-    return jsonify({
-        'records': records_list,
-        'total': total_records,
-        'page': page,
-        'page_size': page_size
-    })
+    try:
+        # 获取查询参数
+        page = request.args.get('page', 1, type=int)
+        page_size = request.args.get('page_size', 10, type=int)
+        department = request.args.get('department')
+        device_group = request.args.get('device_group')
+        
+        # 构建查询条件
+        conditions = []
+        params = []
+        
+        if department:
+            conditions.append("department LIKE ?")
+            params.append(f"%{department}%")
+        if device_group:
+            conditions.append("device_group LIKE ?")
+            params.append(f"%{device_group}%")
+        
+        # 构建SQL查询
+        sql = "SELECT * FROM department_management"
+        if conditions:
+            sql += " WHERE " + " AND ".join(conditions)
+        
+        # 获取总记录数
+        count_sql = "SELECT COUNT(*) FROM department_management"
+        if conditions:
+            count_sql += " WHERE " + " AND ".join(conditions)
+        total_records = DatabaseManager.execute_query(count_sql, params, fetchone=True)[0]
+        
+        # 分页查询
+        offset = (page - 1) * page_size
+        sql += " ORDER BY id DESC LIMIT ? OFFSET ?"
+        params.extend([page_size, offset])
+        
+        records = DatabaseManager.execute_query(sql, params, fetchall=True)
+        records_list = [dict(record) for record in records]
+        
+        return jsonify({
+            'records': records_list,
+            'total': total_records,
+            'page': page,
+            'page_size': page_size
+        })
+    except Exception as e:
+        import traceback
+        error_msg = f"获取部门记录错误: {str(e)}"
+        print(error_msg)
+        print(traceback.format_exc())
+        return jsonify({'error': error_msg, 'traceback': traceback.format_exc()}), 500
 
 
 @department_bp.route('/api/department-records', methods=['POST'])

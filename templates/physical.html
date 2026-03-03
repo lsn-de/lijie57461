@@ -434,19 +434,34 @@
 
     // 加载部门列表
     function loadDepartments() {
+        console.log('开始加载部门列表...');
         ajax({
-            url: '/api/departments',
+            url: '/api/department-records?page=1&page_size=9999',
             method: 'GET'
         }).then(function(response) {
+            console.log('获取到响应:', response);
             var datalist = document.getElementById('departmentList');
+            console.log('datalist元素:', datalist);
             datalist.innerHTML = '';
-            response.forEach(function(dept) {
+
+            // 从记录中提取唯一的部门列表
+            var departments = [...new Set(response.records.map(function(r) { return r.department; }).filter(function(d) { return d; }))];
+            console.log('提取的部门列表:', departments);
+            departments.forEach(function(dept) {
                 var option = document.createElement('option');
                 option.value = dept;
                 datalist.appendChild(option);
             });
+            console.log('datalist已更新，选项数量:', datalist.children.length);
         }).catch(function(error) {
             console.error('加载部门数据失败：', error);
+            // 显示详细错误信息
+            if (error.message) {
+                console.error('错误信息:', error.message);
+            }
+            if (error.responseText) {
+                console.error('响应内容:', error.responseText);
+            }
         });
     }
 

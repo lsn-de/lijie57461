@@ -2,29 +2,12 @@
 __pycache__/
 *.py[cod]
 *$py.class
-*.so
-.Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
 
-# 虚拟环境
+# Virtual Environment
 .venv/
+env/
 venv/
 ENV/
-env/
 
 # IDE
 .idea/
@@ -33,7 +16,80 @@ env/
 *.swo
 *~
 
-# 数据文件
+# OS
+.DS_Store
+Thumbs.db
+
+# Build
+build/
+dist/
+*.spec
+
+# Data
 *.db
+*.sqlite
+*.sqlite3
+data/backups/
+
+# Logs
 *.log
-data/
+logs/
+
+# Temporary files
+*.tmp
+*.temp
+
+# Windows
+*.exe
+*.dll
+*.lib
+*.exp
+*.obj
+*.pyd
+
+# Mac
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Linux
+*~
+
+# Backup files
+*.bak
+*.old
+
+# Compiled files
+*.pyc
+*.pyo
+*.pyd
+
+# Testing
+.pytest_cache/
+.tox/
+
+# Coverage
+htmlcov/
+.coverage
+.coverage.*
+
+# Documentation
+build/
+docs/_build/
+
+# Misc
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Excel files (keep templates, ignore others)
+!物理机模板.xlsx
+!虚拟机模板.xlsx
+!部门模板.xlsx

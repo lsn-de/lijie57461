@@ -11,18 +11,16 @@ import shutil
 # 导入蓝图
 from routes.devices import devices_bp
 from routes.physical import physical_bp
+from routes.department import department_bp
 
 # 获取持久化目录的公共函数
 def get_persist_dir():
-    if os.name == 'posix':  # Linux/Mac
-        # 在Linux系统中，使用用户主目录下的.ems目录
-        home_dir = os.path.expanduser('~')
-        persist_dir = os.path.join(home_dir, '.ems')
-    else:  # Windows
-        # 在Windows系统中，使用应用数据目录
-        current_dir = os.path.dirname(os.path.abspath(__file__))
-        persist_dir = os.path.join(current_dir, 'data')
-    
+    """获取持久化目录 - 统一使用项目目录下的data文件夹"""
+    # 获取当前文件所在目录（EMS1.4/）
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    # 使用项目目录下的data文件夹
+    persist_dir = os.path.join(current_dir, 'data')
+
     # 确保持久化目录存在
     os.makedirs(persist_dir, exist_ok=True)
     return persist_dir
@@ -182,6 +180,7 @@ def handle_options(path):
 # 注册蓝图
 app.register_blueprint(devices_bp)
 app.register_blueprint(physical_bp)
+app.register_blueprint(department_bp)
 
 # 创建Dash应用，绑定到Flask服务器
 dash_app = Dash(__name__, server=app, url_base_pathname='/dashboard/')
@@ -896,8 +895,11 @@ def get_all_departments():
 @admin_required
 def get_department_management():
     try:
+        print("开始获取部门管理记录...")
         conn = get_db_connection()
+        print("数据库连接成功")
         records = conn.execute('SELECT * FROM department_management ORDER BY id').fetchall()
+        print(f"查询到 {len(records)} 条记录")
         conn.close()
         result = []
         for record in records:
@@ -908,8 +910,12 @@ def get_department_management():
                 'created_at': record['created_at'],
                 'updated_at': record['updated_at']
             })
+        print(f"返回 {len(result)} 条记录")
         return jsonify(result)
     except Exception as e:
+        import traceback
+        print(f"获取部门管理记录失败: {str(e)}")
+        print(traceback.format_exc())
         return jsonify({'error': f'获取记录失败：{str(e)}'}), 500
 
 # 添加部门管理记录

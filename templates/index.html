@@ -135,7 +135,10 @@
                             </div>
                             <div class="mb-3">
                                 <label for="addGroup" class="form-label">组别</label>
-                                <input type="text" class="form-control" id="addGroup" name="group" placeholder="请输入组别（可选）">
+                                <input type="text" class="form-control" id="addGroup" name="group" placeholder="请输入组别（可选）" list="groupList">
+                                <datalist id="groupList">
+                                    <!-- 组别选项将通过JavaScript动态加载 -->
+                                </datalist>
                             </div>
                             <div class="mb-3">
                                 <label for="addVmName" class="form-label">虚拟机名称</label>
@@ -196,7 +199,10 @@
                             </div>
                             <div class="mb-3">
                                 <label for="editGroup" class="form-label">组别</label>
-                                <input type="text" class="form-control" id="editGroup" name="group" placeholder="请输入组别（可选）">
+                                <input type="text" class="form-control" id="editGroup" name="group" placeholder="请输入组别（可选）" list="groupList">
+                                <datalist id="groupList">
+                                    <!-- 组别选项将通过JavaScript动态加载 -->
+                                </datalist>
                             </div>
                             <div class="mb-3">
                                 <label for="editVmName" class="form-label">虚拟机名称</label>
@@ -448,21 +454,80 @@
 
     // 加载部门列表
     function loadDepartments() {
+        console.log('开始加载部门列表...');
         ajax({
-            url: '/api/departments',
+            url: '/api/department-records?page=1&page_size=9999',
             method: 'GET'
         }).then(function(response) {
+            console.log('获取到响应:', response);
             var datalist = document.getElementById('departmentList');
+            console.log('datalist元素:', datalist);
             datalist.innerHTML = '';
-            response.forEach(function(dept) {
+
+            // 从记录中提取唯一的部门列表
+            var departments = [...new Set(response.records.map(function(r) { return r.department; }).filter(function(d) { return d; }))];
+            console.log('提取的部门列表:', departments);
+            departments.forEach(function(dept) {
                 var option = document.createElement('option');
                 option.value = dept;
                 datalist.appendChild(option);
             });
+            console.log('datalist已更新，选项数量:', datalist.children.length);
+
+            // 存储部门-组别映射关系，用于级联选择
+            window.departmentGroupMap = {};
+            response.records.forEach(function(record) {
+                if (record.department && record.device_group) {
+                    if (!window.departmentGroupMap[record.department]) {
+                        window.departmentGroupMap[record.department] = new Set();
+                    }
+                    window.departmentGroupMap[record.department].add(record.device_group);
+                }
+            });
+            console.log('部门-组别映射:', window.departmentGroupMap);
         }).catch(function(error) {
             console.error('加载部门数据失败：', error);
+            // 显示详细错误信息
+            if (error.message) {
+                console.error('错误信息:', error.message);
+            }
+            if (error.responseText) {
+                console.error('响应内容:', error.responseText);
+            }
         });
     }
+
+    // 根据选择的部门更新组别列表
+    function updateGroupList(department, datalistId) {
+        console.log('更新组别列表，部门:', department);
+        var datalist = document.getElementById(datalistId);
+        datalist.innerHTML = '';
+
+        if (department && window.departmentGroupMap && window.departmentGroupMap[department]) {
+            var groups = Array.from(window.departmentGroupMap[department]);
+            console.log('该部门下的组别:', groups);
+            groups.forEach(function(group) {
+                var option = document.createElement('option');
+                option.value = group;
+                datalist.appendChild(option);
+            });
+            console.log('组别列表已更新，选项数量:', datalist.children.length);
+        } else {
+            console.log('未找到该部门的组别映射');
+        }
+    }
+
+    // 监听部门选择变化（添加设备模态框）
+    document.getElementById('addDepartment').addEventListener('input', function() {
+        var department = this.value;
+        updateGroupList(department, 'groupList');
+    });
+
+    // 监听部门选择变化（编辑设备模态框）
+    document.getElementById('editDepartment').addEventListener('input', function() {
+        var department = this.value;
+        updateGroupList(department, 'groupList');
+    });
 
     // 添加设备表单提交
     document.getElementById('addDeviceForm').addEventListener('submit', function(e) {

@@ -395,10 +395,12 @@
     
     // 加载记录数据
     function loadRecords() {
+        console.log('开始加载部门管理记录...');
         $.ajax({
             url: '/api/department-management',
             type: 'GET',
             success: function(data) {
+                console.log('获取到数据:', data);
                 records = data;
                 totalRecords = data.length;
                 renderRecords();
@@ -407,7 +409,16 @@
                 updateAddRecordDropdowns();
             },
             error: function(xhr, status, error) {
-                showToast('加载记录失败：' + xhr.responseJSON.error, 'error');
+                console.error('加载记录失败:', xhr, status, error);
+                var errorMsg = '加载记录失败';
+                if (xhr.responseJSON && xhr.responseJSON.error) {
+                    errorMsg += '：' + xhr.responseJSON.error;
+                } else if (xhr.responseText) {
+                    errorMsg += '：' + xhr.responseText;
+                } else if (error) {
+                    errorMsg += '：' + error;
+                }
+                showToast(errorMsg, 'error');
             }
         });
     }

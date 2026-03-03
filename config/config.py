@@ -9,17 +9,12 @@ class Config:
     
     @staticmethod
     def get_persist_dir():
-        """获取持久化目录"""
-        if os.name == 'posix':  # Linux/Mac
-            # 在Linux系统中，使用用户主目录下的.ems目录
-            home_dir = os.path.expanduser('~')
-            persist_dir = os.path.join(home_dir, '.ems')
-        else:  # Windows
-            # 在Windows系统中，使用应用数据目录
-            current_dir = os.path.dirname(os.path.abspath(__file__))
-            # 向上两级到项目根目录
-            persist_dir = os.path.join(os.path.dirname(os.path.dirname(current_dir)), 'data')
-        
+        """获取持久化目录 - 统一使用项目目录下的data文件夹"""
+        # 获取当前文件所在目录（config/）
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        # 向上一级到EMS1.4目录，然后使用data文件夹
+        persist_dir = os.path.join(os.path.dirname(current_dir), 'data')
+
         # 确保持久化目录存在
         os.makedirs(persist_dir, exist_ok=True)
         return persist_dir
