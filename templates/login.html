@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>设备管理系统 - 登录</title>
+    <!-- 引入本地样式表 -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <style>
+        /* 登录页面专用样式 */
+        body {
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .login-container {
+            width: 100%;
+            max-width: 400px;
+            padding: 30px;
+            background-color: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+        
+        .logo-container {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .logo-container img {
+            height: 60px;
+            margin-bottom: 15px;
+        }
+        
+        .login-title {
+            font-size: 20px;
+            font-weight: 600;
+            color: #343a40;
+            margin-bottom: 25px;
+            text-align: center;
+        }
+        
+        .password-group {
+            position: relative;
+        }
+        
+        .toggle-password {
+            position: absolute;
+            right: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            cursor: pointer;
+            color: #6c757d;
+            font-size: 16px;
+        }
+        
+        .toggle-password:hover {
+            color: #495057;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <div class="logo-container">
+            <img src="{{ url_for('static', filename='logo.png') }}" alt="Logo">
+            <h1 class="login-title">设备管理系统</h1>
+        </div>
+        
+        {% if error %}
+            <div class="alert alert-danger">
+                {{ error }}
+            </div>
+        {% endif %}
+        
+        <form action="/login" method="POST">
+            <div class="form-group">
+                <label for="username" class="form-label">账号</label>
+                <input type="text" class="form-control" id="username" name="username" placeholder="请输入账号" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="password" class="form-label">密码</label>
+                <div class="password-group">
+                    <input type="password" class="form-control" id="password" name="password" placeholder="请输入密码" required>
+                    <span class="toggle-password" id="togglePassword">👁️</span>
+                </div>
+            </div>
+            
+            <button type="submit" class="btn btn-primary" style="width: 100%; padding: 10px;">登录</button>
+        </form>
+    </div>
+    
+    <script>
+        // 密码显示/隐藏功能
+        document.addEventListener('DOMContentLoaded', function() {
+            const togglePassword = document.getElementById('togglePassword');
+            const passwordInput = document.getElementById('password');
+            
+            togglePassword.addEventListener('click', function() {
+                const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+                passwordInput.setAttribute('type', type);
+                
+                // 切换图标
+                this.textContent = type === 'password' ? '👁️' : '🚫';
+            });
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,644 @@
+{% extends "base.html" %}
+
+{% block title %}数据统计 - 设备管理系统{% endblock %}
+
+{% block page_id %}stats{% endblock %}
+
+{% block extra_css %}
+<!-- 引入公共JS文件 -->
+<script src="{{ url_for('static', filename='js/common.js') }}"></script>
+<!-- 引入 Plotly.js -->
+<script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+<!-- 图表切换按钮样式 -->
+<style>
+    .chart-toggle-group {
+        display: inline-flex;
+        border: 1px solid #dee2e6;
+        border-radius: 6px;
+        overflow: hidden;
+        background-color: #f8f9fa;
+    }
+    
+    .chart-toggle-btn {
+        padding: 6px 16px;
+        border: none;
+        background-color: transparent;
+        cursor: pointer;
+        font-size: 14px;
+        color: #6c757d;
+        transition: all 0.2s ease;
+        border-right: 1px solid #dee2e6;
+    }
+    
+    .chart-toggle-btn:last-child {
+        border-right: none;
+    }
+    
+    .chart-toggle-btn:hover {
+        background-color: #e9ecef;
+        color: #495057;
+    }
+    
+    .chart-toggle-btn.active {
+        background-color: #0d6efd;
+        color: white;
+        font-weight: 500;
+    }
+    
+    .chart-toggle-btn.active:hover {
+        background-color: #0b5ed7;
+    }
+    
+    /* 更新时间样式 */
+    .update-time {
+        font-size: 14px;
+        color: #6c757d;
+        font-weight: normal;
+        margin-left: 10px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<h2>数据统计 <span class="update-time">（更新时间：<span id="page-load-time"></span>）</span></h2>
+
+<!-- 统计卡片区域 -->
+<div class="chart-container efficiency-container">
+    <h3>资源使用统计</h3>
+    <div class="stats-cards">
+        <div class="stat-card">
+            <h3>产品数量</h3>
+            <div class="value">{{ stats.product_count }}</div>
+        </div>
+        <div class="stat-card">
+            <h3>虚拟机数量</h3>
+            <div class="value">{{ stats.vm_count }}</div>
+        </div>
+
+        <div class="stat-card">
+            <h3>物理机数量</h3>
+            <div class="value">{{ stats.physical_count }}</div>
+        </div>
+        <div class="stat-card">
+            <h3>部门数量</h3>
+            <div class="value">{{ stats.department_count }}</div>
+        </div>
+        <div class="stat-card">
+            <h3>组别数量</h3>
+            <div class="value">{{ stats.group_count }}</div>
+        </div>
+    </div>
+    <div class="efficiency-cards">
+        <div class="efficiency-card">
+            <h4>每部门平均机器数</h4>
+            <div class="value">{{ stats.avg_machines_per_department }}</div>
+        </div>
+        <div class="efficiency-card">
+            <h4>每产品平均机器数</h4>
+            <div class="value">{{ stats.avg_machines_per_product }}</div>
+        </div>
+        <div class="efficiency-card">
+            <h4>部门-产品平均机器数</h4>
+            <div class="value">{{ stats.avg_machines_per_dept_product }}</div>
+        </div>
+    </div>
+</div>
+
+<!-- 图表区域 -->
+<div class="chart-area">
+    <div class="chart-container chart-container-flex">
+        <h3>设备类型分布</h3>
+        <div class="chart-center">
+            <div class="chart-width">
+                <div id="device-type-chart" class="chart"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="chart-container chart-container-flex">
+        <h3>部门使用的机器个数</h3>
+        <div class="chart-center">
+            <div class="chart-width">
+                <div id="department-pie-chart" class="chart"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="chart-container chart-container-flex">
+        <h3>各部门虚拟机使用个数</h3>
+        <div class="chart-center">
+            <div class="chart-width">
+                <div id="vm-by-department-chart" class="chart"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="chart-container chart-container-flex">
+        <h3>各部门物理机使用个数</h3>
+        <div class="chart-center">
+            <div class="chart-width">
+                <div id="physical-by-department-chart" class="chart"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="chart-container chart-container-flex">
+    <h3>产品使用的机器个数</h3>
+    <div class="chart-controls">
+        <div class="chart-toggle-group">
+            <button onclick="renderProductChart('pie')" class="chart-toggle-btn active" id="productPieBtn">饼图</button>
+            <button onclick="renderProductChart('bar')" class="chart-toggle-btn" id="productBarBtn">条形图</button>
+        </div>
+    </div>
+    <div class="chart-center">
+        <div class="chart-width">
+            <div id="product-chart" class="chart"></div>
+        </div>
+    </div>
+</div>
+
+<div class="chart-container">
+    <h3>部门-产品资源矩阵</h3>
+    <div class="chart-center">
+        <div class="chart-width-xl">
+            <div id="department-product-heatmap" class="chart"></div>
+        </div>
+    </div>
+</div>
+
+<div class="chart-container">
+    <h3>资源使用趋势</h3>
+    <div class="chart-controls">
+        <button onclick="renderTrendChart('quarter')" class="trend-btn active">季度</button>
+        <button onclick="renderTrendChart('year')" class="trend-btn">年份</button>
+    </div>
+    <div class="chart-center">
+        <div class="chart-width-xl">
+            <div id="resource-trend-chart" class="chart"></div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // 设置页面加载时间
+    function setPageLoadTime() {
+        const now = new Date();
+        const options = {
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit'
+        };
+        document.getElementById('page-load-time').textContent = now.toLocaleString('zh-CN', options);
+    }
+
+    // 初始化图表
+    function initCharts() {
+        try {
+            // 设置页面加载时间
+            setPageLoadTime();
+            
+            console.log('设备类型数据:', {{ device_type_data | tojson }});
+            console.log('部门-产品矩阵数据:', {{ department_product_matrix | tojson }});
+            console.log('季度趋势数据:', {{ resource_quarterly_data | tojson }});
+
+            // 初始化产品机器数量图表（默认显示饼图）
+            renderProductChart('pie');
+
+            // 部门机器数量图表
+            const departmentData = {{ department_data | tojson }};
+            const departmentLabels = departmentData.map(item => item.department || '未分类');
+            const departmentValues = departmentData.map(item => item.count);
+
+            const departmentColors = ['#2ecc71', '#3498db', '#e74c3c', '#f39c12', '#9b59b6', '#1abc9c', '#34495e'];
+
+            const departmentPieTrace = {
+                values: departmentValues,
+                labels: departmentLabels,
+                type: 'pie',
+                hole: 0.3,
+                marker: {
+                    colors: departmentColors.slice(0, departmentLabels.length)
+                }
+            };
+
+            const departmentPieLayout = {
+                showlegend: true,
+                legend: {
+                    x: 1.15,
+                    y: 1,
+                    xanchor: 'left'
+                },
+                margin: {
+                    l: 50,
+                    r: 180,
+                    t: 50,
+                    b: 50
+                },
+                transition: {
+                    duration: 500
+                }
+            };
+
+            Plotly.newPlot('department-pie-chart', [departmentPieTrace], departmentPieLayout);
+
+            // 各部门虚拟机使用个数饼图
+            const vmByDepartmentData = {{ vm_by_department | tojson }};
+            console.log('虚拟机部门分布数据:', vmByDepartmentData);
+            if (vmByDepartmentData && vmByDepartmentData.length > 0) {
+                const vmDeptLabels = vmByDepartmentData.map(item => item.department || '未分类');
+                const vmDeptValues = vmByDepartmentData.map(item => item.count);
+
+                const vmDeptColors = ['#3498db', '#2ecc71', '#e74c3c', '#f39c12', '#9b59b6', '#1abc9c', '#34495e', '#95a5a6'];
+
+                const vmDeptPieTrace = {
+                    values: vmDeptValues,
+                    labels: vmDeptLabels,
+                    type: 'pie',
+                    hole: 0.3,
+                    marker: {
+                        colors: vmDeptColors.slice(0, vmDeptLabels.length)
+                    },
+                    textinfo: 'label+percent',
+                    textposition: 'outside'
+                };
+
+                const vmDeptPieLayout = {
+                    showlegend: true,
+                    legend: {
+                        x: 1.15,
+                        y: 1,
+                        xanchor: 'left'
+                    },
+                    margin: {
+                        l: 50,
+                        r: 180,
+                        t: 50,
+                        b: 50
+                    }
+                };
+
+                Plotly.newPlot('vm-by-department-chart', [vmDeptPieTrace], vmDeptPieLayout);
+            }
+
+            // 各部门物理机使用个数饼图
+            const physicalByDepartmentData = {{ physical_by_department | tojson }};
+            console.log('物理机部门分布数据:', physicalByDepartmentData);
+            if (physicalByDepartmentData && physicalByDepartmentData.length > 0) {
+                const physicalDeptLabels = physicalByDepartmentData.map(item => item.department || '未分类');
+                const physicalDeptValues = physicalByDepartmentData.map(item => item.count);
+
+                const physicalDeptColors = ['#e74c3c', '#3498db', '#2ecc71', '#f39c12', '#9b59b6', '#1abc9c', '#34495e', '#95a5a6'];
+
+                const physicalDeptPieTrace = {
+                    values: physicalDeptValues,
+                    labels: physicalDeptLabels,
+                    type: 'pie',
+                    hole: 0.3,
+                    marker: {
+                        colors: physicalDeptColors.slice(0, physicalDeptLabels.length)
+                    },
+                    textinfo: 'label+percent',
+                    textposition: 'outside'
+                };
+
+                const physicalDeptPieLayout = {
+                    showlegend: true,
+                    legend: {
+                        x: 1.15,
+                        y: 1,
+                        xanchor: 'left'
+                    },
+                    margin: {
+                        l: 50,
+                        r: 180,
+                        t: 50,
+                        b: 50
+                    }
+                };
+
+                Plotly.newPlot('physical-by-department-chart', [physicalDeptPieTrace], physicalDeptPieLayout);
+            }
+
+            // 设备类型分布图表
+            const deviceTypeData = {{ device_type_data | tojson }};
+            console.log('设备类型数据:', deviceTypeData);
+            if (deviceTypeData && deviceTypeData.length > 0) {
+                const deviceTypeLabels = deviceTypeData.map(item => item.type);
+                const deviceTypeValues = deviceTypeData.map(item => item.count);
+
+                console.log('设备类型标签:', deviceTypeLabels);
+                console.log('设备类型值:', deviceTypeValues);
+
+                const deviceTypeColors = ['#3498db', '#e74c3c'];
+
+                const deviceTypeTrace = {
+                    values: deviceTypeValues,
+                    labels: deviceTypeLabels,
+                    type: 'pie',
+                    hole: 0.3,
+                    marker: {
+                        colors: deviceTypeColors
+                    }
+                };
+
+                const deviceTypeLayout = {
+                    showlegend: true,
+                    legend: {
+                        x: 1.15,
+                        y: 1,
+                        xanchor: 'left'
+                    },
+                    margin: {
+                        l: 50,
+                        r: 180,
+                        t: 50,
+                        b: 50
+                    },
+                    transition: {
+                        duration: 500
+                    }
+                };
+
+                console.log('正在渲染设备类型分布图表...');
+                Plotly.newPlot('device-type-chart', [deviceTypeTrace], deviceTypeLayout);
+                console.log('设备类型分布图表渲染完成');
+            } else {
+                console.warn('设备类型数据为空或长度为0');
+            }
+
+            // 部门-产品资源矩阵热力图
+            const departmentProductMatrix = {{ department_product_matrix | tojson }};
+            console.log('部门-产品矩阵数据:', departmentProductMatrix);
+            if (departmentProductMatrix && departmentProductMatrix.length > 0) {
+                const depts = [...new Set(departmentProductMatrix.map(item => item.department))];
+                const products = [...new Set(departmentProductMatrix.map(item => item.product))];
+
+                console.log('部门列表:', depts);
+                console.log('产品列表:', products);
+
+                const z = [];
+                for (const dept of depts) {
+                    const row = [];
+                    for (const product of products) {
+                        const item = departmentProductMatrix.find(i => i.department === dept && i.product === product);
+                        row.push(item ? item.count : 0);
+                    }
+                    z.push(row);
+                }
+
+                console.log('热力图数据矩阵:', z);
+
+                const heatmapTrace = {
+                    z: z,
+                    x: products,
+                    y: depts,
+                    type: 'heatmap',
+                    colorscale: 'YlOrRd',
+                    colorbar: {
+                        title: '机器数量'
+                    }
+                };
+
+                const heatmapLayout = {
+                    xaxis: {
+                        title: '产品'
+                    },
+                    yaxis: {
+                        title: '部门'
+                    },
+                    height: '100%',
+                    minHeight: 400
+                };
+
+                console.log('正在渲染部门-产品资源矩阵热力图...');
+                Plotly.newPlot('department-product-heatmap', [heatmapTrace], heatmapLayout);
+                console.log('部门-产品资源矩阵热力图渲染完成');
+            } else {
+                console.warn('部门-产品矩阵数据为空或长度为0');
+            }
+
+            // 资源使用趋势图表 - 默认显示季度数据
+            const resourceQuarterlyData = {{ resource_quarterly_data | tojson }};
+            console.log('季度趋势数据:', resourceQuarterlyData);
+            if (resourceQuarterlyData && resourceQuarterlyData.length > 0) {
+                const quarters = resourceQuarterlyData.map(item => item.quarter);
+                const vmCounts = resourceQuarterlyData.map(item => item.vm_count);
+                const physicalCounts = resourceQuarterlyData.map(item => item.physical_count);
+
+                console.log('季度标签:', quarters);
+                console.log('虚拟机数量:', vmCounts);
+                console.log('物理机数量:', physicalCounts);
+
+                const trendTrace1 = {
+                    x: quarters,
+                    y: vmCounts,
+                    name: '虚拟机',
+                    type: 'scatter',
+                    mode: 'lines+markers',
+                    line: {
+                        color: '#3498db'
+                    }
+                };
+
+                const trendTrace2 = {
+                    x: quarters,
+                    y: physicalCounts,
+                    name: '物理机',
+                    type: 'scatter',
+                    mode: 'lines+markers',
+                    line: {
+                        color: '#e74c3c'
+                    }
+                };
+
+                const trendLayout = {
+                    xaxis: {
+                        title: '季度'
+                    },
+                    yaxis: {
+                        title: '机器数量'
+                    },
+                    legend: {
+                        x: 0,
+                        y: 1.5
+                    }
+                };
+
+                console.log('正在渲染资源使用趋势图表...');
+                Plotly.newPlot('resource-trend-chart', [trendTrace1, trendTrace2], trendLayout);
+                console.log('资源使用趋势图表渲染完成');
+            } else {
+                console.warn('季度趋势数据为空或长度为0');
+            }
+        } catch (error) {
+            console.error('图表初始化错误:', error);
+        }
+    }
+
+    // 渲染趋势图表
+    function renderTrendChart(period) {
+        document.querySelectorAll('.trend-btn').forEach(btn => btn.classList.remove('active'));
+        event.target.classList.add('active');
+
+        try {
+            let data, xAxis, xAxisTitle;
+
+            if (period === 'quarter') {
+                data = {{ resource_quarterly_data | tojson }};
+                xAxis = data.map(item => item.quarter);
+                xAxisTitle = '季度';
+            } else if (period === 'year') {
+                data = {{ resource_yearly_data | tojson }};
+                xAxis = data.map(item => item.year);
+                xAxisTitle = '年份';
+            }
+
+            if (data && data.length > 0) {
+                const vmCounts = data.map(item => item.vm_count);
+                const physicalCounts = data.map(item => item.physical_count);
+
+                const trendTrace1 = {
+                    x: xAxis,
+                    y: vmCounts,
+                    name: '虚拟机',
+                    type: 'scatter',
+                    mode: 'lines+markers',
+                    line: {
+                        color: '#3498db'
+                    }
+                };
+
+                const trendTrace2 = {
+                    x: xAxis,
+                    y: physicalCounts,
+                    name: '物理机',
+                    type: 'scatter',
+                    mode: 'lines+markers',
+                    line: {
+                        color: '#e74c3c'
+                    }
+                };
+
+                const trendLayout = {
+                    xaxis: {
+                        title: xAxisTitle
+                    },
+                    yaxis: {
+                        title: '机器数量'
+                    },
+                    legend: {
+                        x: 0,
+                        y: 1.5
+                    }
+                };
+
+                Plotly.newPlot('resource-trend-chart', [trendTrace1, trendTrace2], trendLayout);
+            }
+        } catch (error) {
+            console.error('渲染趋势图表错误:', error);
+        }
+    }
+
+    // 渲染产品图表（饼图或条形图）
+    function renderProductChart(chartType) {
+        // 更新按钮状态
+        document.querySelectorAll('.chart-toggle-btn').forEach(btn => btn.classList.remove('active'));
+        if (chartType === 'pie') {
+            document.getElementById('productPieBtn').classList.add('active');
+        } else {
+            document.getElementById('productBarBtn').classList.add('active');
+        }
+
+        try {
+            const productData = {{ product_data | tojson }};
+            const productLabels = productData.map(item => item.product || '未分类');
+            const productValues = productData.map(item => item.count);
+
+            const productColors = ['#3498db', '#e74c3c', '#2ecc71', '#f39c12', '#9b59b6', '#1abc9c', '#34495e'];
+
+            if (chartType === 'pie') {
+                // 饼图
+                const pieTrace = {
+                    values: productValues,
+                    labels: productLabels,
+                    type: 'pie',
+                    hole: 0.3,
+                    marker: {
+                        colors: productColors.slice(0, productLabels.length)
+                    },
+                    textinfo: 'label+percent',
+                    textposition: 'outside'
+                };
+
+                const pieLayout = {
+                    showlegend: true,
+                    legend: {
+                        x: 1.15,
+                        y: 1,
+                        xanchor: 'left'
+                    },
+                    margin: {
+                        l: 50,
+                        r: 180,
+                        t: 50,
+                        b: 50
+                    }
+                };
+
+                Plotly.newPlot('product-chart', [pieTrace], pieLayout);
+            } else {
+                // 条形图 - 为每个产品创建一个trace，使图例显示产品名称
+                const barTraces = productData.map((item, index) => ({
+                    x: [item.product || '未分类'],
+                    y: [item.count],
+                    name: item.product || '未分类',
+                    type: 'bar',
+                    marker: {
+                        color: productColors[index % productColors.length]
+                    },
+                    text: [String(item.count)],
+                    textposition: 'auto'
+                }));
+
+                const barLayout = {
+                    showlegend: true,
+                    legend: {
+                        x: 1.15,
+                        y: 1,
+                        xanchor: 'left'
+                    },
+                    xaxis: {
+                        title: '产品',
+                        tickangle: -45
+                    },
+                    yaxis: {
+                        title: '机器数量'
+                    },
+                    margin: {
+                        l: 60,
+                        r: 150,
+                        t: 50,
+                        b: 100
+                    },
+                    barmode: 'group'
+                };
+
+                Plotly.newPlot('product-chart', barTraces, barLayout);
+            }
+        } catch (error) {
+            console.error('渲染产品图表错误:', error);
+        }
+    }
+
+    // 页面加载完成后初始化图表
+    window.onload = function() {
+        initCharts();
+    };
+</script>
+{% endblock %}

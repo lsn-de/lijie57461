@@ -1,0 +1,609 @@
+{% extends "base.html" %}
+
+{% block title %}物理机管理 - 设备管理系统{% endblock %}
+
+{% block page_id %}physical{% endblock %}
+
+{% block extra_css %}
+<!-- 引入公共JS文件 -->
+<script src="{{ url_for('static', filename='js/common.js') }}"></script>
+<!-- 自定义样式 -->
+<style>
+    /* 表格单元格样式 */
+    table td {
+        vertical-align: middle;
+    }
+
+    /* 表格内容换行 */
+    table {
+        word-wrap: break-word;
+        word-break: break-all;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- 功能按钮区域 -->
+<div class="action-buttons">
+    <button type="button" class="btn btn-primary" onclick="openModal('addDeviceModal')">
+        添加设备
+    </button>
+
+    <button type="button" class="btn btn-success" onclick="openModal('importModal')">
+        导入Excel
+    </button>
+
+    <button type="button" class="btn btn-secondary" onclick="openModal('viewDeviceModal')">
+        查看设备
+    </button>
+
+    {% if session.role == 'admin' %}
+    <button type="button" class="btn btn-danger" onclick="openModal('resetModal')">
+        重置数据表
+    </button>
+    {% endif %}
+
+    <button type="button" class="btn btn-info" onclick="loadDevices()">
+        刷新数据
+    </button>
+</div>
+
+<!-- 设备列表表格 -->
+<div class="card">
+    <div class="card-header">
+        <h5>设备列表</h5>
+    </div>
+    <div id="table-container" class="card-body">
+        <table style="table-layout: fixed;">
+            <thead>
+                <tr>
+                    <th style="width: 50px;">ID</th>
+                    <th style="width: 100px;">产品</th>
+                    <th style="width: 100px;">部门</th>
+                    <th style="width: 120px;">设备编码</th>
+                    <th style="width: 120px;">IP地址</th>
+                    <th style="width: 120px;">带外IP</th>
+                    <th style="width: 80px;">账号</th>
+                    <th style="width: 100px;">密码</th>
+                    <th style="width: 150px;">备注</th>
+                    <th style="width: 120px;">创建时间</th>
+                    <th style="width: 140px;">操作</th>
+                </tr>
+            </thead>
+            <tbody id="deviceTableBody">
+                <!-- 设备列表将通过JavaScript动态加载 -->
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- 查看结果表格 -->
+<div class="card mt-4" id="viewResultCard" style="display: none;">
+    <div class="card-header">
+        <h5>查看结果</h5>
+    </div>
+    <div id="view-result-container" class="card-body">
+        <table style="table-layout: fixed;">
+            <thead>
+                <tr>
+                    <th style="width: 50px;">ID</th>
+                    <th style="width: 100px;">产品</th>
+                    <th style="width: 100px;">部门</th>
+                    <th style="width: 120px;">设备编码</th>
+                    <th style="width: 120px;">IP地址</th>
+                    <th style="width: 120px;">带外IP</th>
+                    <th style="width: 80px;">账号</th>
+                    <th style="width: 100px;">密码</th>
+                    <th style="width: 150px;">备注</th>
+                    <th style="width: 120px;">创建时间</th>
+                    <th style="width: 140px;">操作</th>
+                </tr>
+            </thead>
+            <tbody id="viewResultTableBody">
+                <!-- 查看结果将通过JavaScript动态加载 -->
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- 添加设备模态框 -->
+<div class="modal fade" id="addDeviceModal" tabindex="-1" aria-labelledby="addDeviceModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="addDeviceModalLabel">添加物理机</h5>
+            </div>
+            <form id="addDeviceForm">
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="addProduct" class="form-label">产品</label>
+                                <input type="text" class="form-control" id="addProduct" name="product" placeholder="请输入产品（可选）">
+                            </div>
+                            <div class="mb-3">
+                                <label for="addAccount" class="form-label">账号</label>
+                                <input type="text" class="form-control" id="addAccount" name="account" placeholder="请输入账号（可选）">
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="addDepartment" class="form-label">部门</label>
+                                <input type="text" class="form-control" id="addDepartment" name="department" required list="departmentList">
+                                <datalist id="departmentList">
+                                    <!-- 部门选项将通过JavaScript动态加载 -->
+                                </datalist>
+                            </div>
+                            <div class="mb-3">
+                                <label for="addPassword" class="form-label">密码</label>
+                                <input type="text" class="form-control" id="addPassword" name="password" placeholder="请输入密码（可选）">
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="addIpAddress" class="form-label">IP地址</label>
+                                <input type="text" class="form-control" id="addIpAddress" name="ip_address" required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="addOobIp" class="form-label">带外IP</label>
+                                <input type="text" class="form-control" id="addOobIp" name="oob_ip" placeholder="请输入带外IP（可选）">
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="addDeviceCode" class="form-label">设备编码</label>
+                                <input type="text" class="form-control" id="addDeviceCode" name="device_code" placeholder="请输入设备编码（可选）">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="addRemark" class="form-label">备注</label>
+                        <textarea class="form-control" id="addRemark" name="remark" rows="2" placeholder="请输入备注信息（可选）"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('addDeviceModal')">取消</button>
+                    <button type="submit" class="btn btn-primary">添加</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- 修改设备模态框 -->
+<div class="modal fade" id="editDeviceModal" tabindex="-1" aria-labelledby="editDeviceModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editDeviceModalLabel">修改物理机</h5>
+            </div>
+            <form id="editDeviceForm">
+                <input type="hidden" id="editDeviceId" name="id">
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="editProduct" class="form-label">产品</label>
+                                <input type="text" class="form-control" id="editProduct" name="product" placeholder="请输入产品（可选）">
+                            </div>
+                            <div class="mb-3">
+                                <label for="editAccount" class="form-label">账号</label>
+                                <input type="text" class="form-control" id="editAccount" name="account" placeholder="请输入账号（可选）">
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="editDepartment" class="form-label">部门</label>
+                                <input type="text" class="form-control" id="editDepartment" name="department" required list="departmentList">
+                                <datalist id="departmentList">
+                                    <!-- 部门选项将通过JavaScript动态加载 -->
+                                </datalist>
+                            </div>
+                            <div class="mb-3">
+                                <label for="editPassword" class="form-label">密码</label>
+                                <input type="text" class="form-control" id="editPassword" name="password" placeholder="请输入密码（可选）">
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="editIpAddress" class="form-label">IP地址</label>
+                                <input type="text" class="form-control" id="editIpAddress" name="ip_address" required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="editOobIp" class="form-label">带外IP</label>
+                                <input type="text" class="form-control" id="editOobIp" name="oob_ip" placeholder="请输入带外IP（可选）">
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="editDeviceCode" class="form-label">设备编码</label>
+                                <input type="text" class="form-control" id="editDeviceCode" name="device_code" placeholder="请输入设备编码（可选）">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editRemark" class="form-label">备注</label>
+                        <textarea class="form-control" id="editRemark" name="remark" rows="2"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('editDeviceModal')">取消</button>
+                    <button type="submit" class="btn btn-primary">保存</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- 导入物理机模态框 -->
+<div class="modal fade" id="importModal" tabindex="-1" aria-labelledby="importModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="importModalLabel">导入物理机</h5>
+            </div>
+            <form id="importForm" enctype="multipart/form-data">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="fileInput" class="form-label">选择Excel文件</label>
+                        <input type="file" class="form-control" id="fileInput" name="file" accept=".xlsx" required>
+                        <div class="form-text">请确保Excel文件包含以下列（顺序和名称必须一致）：<br>
+                            产品,部门,设备编码,IP地址,带外IP,账号,密码,备注<br>
+                            注：产品和设备编码可为空
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('importModal')">取消</button>
+                    <button type="submit" class="btn btn-primary">导入</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- 查看物理机模态框 -->
+<div class="modal fade" id="viewDeviceModal" tabindex="-1" aria-labelledby="viewDeviceModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="viewDeviceModalLabel">查询物理机</h5>
+            </div>
+            <form id="viewDeviceForm">
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="viewProduct" class="form-label">产品</label>
+                                <input type="text" class="form-control" id="viewProduct" name="product" placeholder="可输入产品进行查询">
+                            </div>
+                            <div class="mb-3">
+                                <label for="viewDepartment" class="form-label">部门</label>
+                                <input type="text" class="form-control" id="viewDepartment" name="department" placeholder="可输入部门进行查询" list="departmentList">
+                                <datalist id="departmentList">
+                                    <!-- 部门选项将通过JavaScript动态加载 -->
+                                </datalist>
+                            </div>
+                            <div class="mb-3">
+                                <label for="viewIpAddress" class="form-label">IP地址</label>
+                                <input type="text" class="form-control" id="viewIpAddress" name="ip_address" placeholder="可输入部分IP进行模糊查询">
+                            </div>
+                            <div class="mb-3">
+                                <label for="viewOobIp" class="form-label">带外IP</label>
+                                <input type="text" class="form-control" id="viewOobIp" name="oob_ip" placeholder="可输入部分带外IP进行模糊查询">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="viewDeviceCode" class="form-label">设备编码</label>
+                                <input type="text" class="form-control" id="viewDeviceCode" name="device_code" placeholder="可输入部分设备编码进行模糊查询">
+                            </div>
+                            <div class="mb-3">
+                                <label for="viewAccount" class="form-label">账号</label>
+                                <input type="text" class="form-control" id="viewAccount" name="account" placeholder="可输入部分账号进行模糊查询">
+                            </div>
+                            <div class="mb-3">
+                                <label for="viewPassword" class="form-label">密码</label>
+                                <input type="text" class="form-control" id="viewPassword" name="password" placeholder="可输入部分密码进行模糊查询">
+                            </div>
+                            <div class="mb-3">
+                                <label for="viewRemark" class="form-label">备注</label>
+                                <input type="text" class="form-control" id="viewRemark" name="remark" placeholder="可输入部分备注进行模糊查询">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('viewDeviceModal')">取消</button>
+                    <button type="submit" class="btn btn-primary">查询</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- 重置数据表模态框 -->
+<div class="modal fade" id="resetModal" tabindex="-1" aria-labelledby="resetModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title" id="resetModalLabel">警告：重置数据表</h5>
+            </div>
+            <div class="modal-body">
+                <p class="text-danger">此操作将清空所有物理机数据，且无法恢复！</p>
+                <p>请输入 "RESET" 确认重置操作：</p>
+                <input type="text" class="form-control" id="resetConfirmInput" placeholder="请输入 RESET">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('resetModal')">取消</button>
+                <button type="button" class="btn btn-danger" onclick="resetDatabase()">确认重置</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // 页面加载完成后加载设备数据
+    document.addEventListener('DOMContentLoaded', function() {
+        loadDevices();
+        loadDepartments();
+    });
+
+    // 加载设备列表
+    function loadDevices(showSuccessToast = true) {
+        ajax({
+            url: '/api/physical-devices',
+            method: 'GET'
+        }).then(function(response) {
+            renderDeviceTable(response, 'deviceTableBody');
+            // 显示刷新成功提示（可选）
+            if (showSuccessToast) {
+                showToast('数据刷新成功');
+            }
+        }).catch(function(error) {
+            // 正确处理错误信息
+            var errorMessage = '加载设备数据失败';
+            if (error.responseText) {
+                try {
+                    var errorObj = JSON.parse(error.responseText);
+                    errorMessage = errorObj.error || errorMessage;
+                } catch (e) {
+                    errorMessage = error.responseText;
+                }
+            } else if (error.message) {
+                errorMessage = error.message;
+            }
+            showToast('加载设备数据失败：' + errorMessage, 'error');
+        });
+    }
+
+    // 渲染设备表格
+    function renderDeviceTable(devices, tableBodyId) {
+        var tableBody = document.getElementById(tableBodyId);
+        tableBody.innerHTML = '';
+
+        devices.forEach(function(device) {
+            var row = document.createElement('tr');
+
+            // 判断密码显示方式
+            var passwordDisplay;
+            if (userRole === 'admin') {
+                passwordDisplay = device.password || '-';
+            } else {
+                // user角色：同部门显示真实密码，不同部门显示*******
+                if (device.department === userDepartment) {
+                    passwordDisplay = device.password || '-';
+                } else {
+                    passwordDisplay = '*******';
+                }
+            }
+
+            // 构建操作按钮
+            var actionButtons = '';
+            // 编辑按钮：管理员或同部门用户可以使用
+            if (userRole === 'admin' || device.department === userDepartment) {
+                actionButtons += `<button class="btn btn-sm btn-primary" onclick="editDevice(${device.id})")">编辑</button>`;
+            }
+            // 删除按钮：只有管理员可以使用
+            if (userRole === 'admin') {
+                actionButtons += `<button class="btn btn-sm btn-danger" onclick="deleteDevice(${device.id})")">删除</button>`;
+            }
+
+            row.innerHTML = `
+                <td>${device.id}</td>
+                <td>${device.product || '-'}</td>
+                <td>${device.department || '-'}</td>
+                <td>${device.device_code || '-'}</td>
+                <td>${device.ip_address}</td>
+                <td>${device.oob_ip}</td>
+                <td>${device.account || '-'}</td>
+                <td>${passwordDisplay}</td>
+                <td>${device.remark || '-'}</td>
+                <td>${device.created_at ? device.created_at.split(' ')[0] : '-'}</td>
+                <td>
+                    <div class="btn-group-horizontal">
+                        ${actionButtons}
+                    </div>
+                </td>
+            `;
+            tableBody.appendChild(row);
+        });
+    }
+
+    // 加载部门列表
+    function loadDepartments() {
+        ajax({
+            url: '/api/departments',
+            method: 'GET'
+        }).then(function(response) {
+            var datalist = document.getElementById('departmentList');
+            datalist.innerHTML = '';
+            response.forEach(function(dept) {
+                var option = document.createElement('option');
+                option.value = dept;
+                datalist.appendChild(option);
+            });
+        }).catch(function(error) {
+            console.error('加载部门数据失败：', error);
+        });
+    }
+
+    // 添加设备表单提交
+    document.getElementById('addDeviceForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        var formData = new FormData(this);
+
+        ajax({
+            url: '/api/physical-devices',
+            method: 'POST',
+            data: formData,
+            formData: true
+        }).then(function(response) {
+            showToast('设备添加成功', 'success');
+            closeModal('addDeviceModal');
+            loadDevices();
+            document.getElementById('addDeviceForm').reset();
+        }).catch(function(error) {
+            showToast('添加设备失败：' + error.message, 'error');
+        });
+    });
+
+    // 编辑设备
+    function editDevice(deviceId) {
+        ajax({
+            url: '/api/physical-devices/' + deviceId,
+            method: 'GET'
+        }).then(function(device) {
+            document.getElementById('editDeviceId').value = device.id;
+            document.getElementById('editProduct').value = device.product || '';
+            document.getElementById('editDepartment').value = device.department || '';
+            document.getElementById('editDeviceCode').value = device.device_code || '';
+            document.getElementById('editIpAddress').value = device.ip_address;
+            document.getElementById('editOobIp').value = device.oob_ip;
+            document.getElementById('editAccount').value = device.account || '';
+            document.getElementById('editPassword').value = device.password || '';
+            document.getElementById('editRemark').value = device.remark || '';
+
+            openModal('editDeviceModal');
+        }).catch(function(error) {
+            showToast('获取设备信息失败：' + error.message, 'error');
+        });
+    }
+
+    // 编辑设备表单提交
+    document.getElementById('editDeviceForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        var deviceId = document.getElementById('editDeviceId').value;
+        var formData = new FormData(this);
+
+        ajax({
+            url: '/api/physical-devices/' + deviceId,
+            method: 'PUT',
+            data: formData,
+            formData: true
+        }).then(function(response) {
+            showToast('设备更新成功', 'success');
+            closeModal('editDeviceModal');
+            loadDevices();
+        }).catch(function(error) {
+            showToast('更新设备失败：' + error.message, 'error');
+        });
+    });
+
+    // 删除设备
+    function deleteDevice(deviceId) {
+        if (!confirm('确定要删除这个设备吗？')) {
+            return;
+        }
+
+        ajax({
+            url: '/api/physical-devices/' + deviceId,
+            method: 'DELETE'
+        }).then(function(response) {
+            showToast('设备删除成功', 'success');
+            loadDevices();
+        }).catch(function(error) {
+            showToast('删除设备失败：' + error.message, 'error');
+        });
+    }
+
+    // 导入Excel表单提交
+    document.getElementById('importForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        var formData = new FormData(this);
+
+        ajax({
+            url: '/api/physical-devices/import',
+            method: 'POST',
+            data: formData,
+            formData: true  // 标记为FormData数据
+        }).then(function(response) {
+            if (response.error_count > 0) {
+                var message = '成功：' + response.success_count + ' 条\n';
+                message += '失败：' + response.error_count + ' 条\n\n';
+                if (response.errors) {
+                    message += '失败的行：\n' + response.errors.join('\n');
+                }
+                showErrorDialog('导入结果', message);
+            } else {
+                showToast('导入成功：' + response.success_count + '条数据', 'success');
+            }
+            closeModal('importModal');
+            // 延迟调用loadDevices()，确保导入结果提示能够完整显示
+            setTimeout(function() {
+                loadDevices(false); // 传递false参数，不显示刷新成功提示
+                document.getElementById('importForm').reset();
+            }, 2500);
+        }).catch(function(error) {
+            showErrorDialog('导入失败', error.message);
+        });
+    });
+
+    // 查看设备表单提交
+    document.getElementById('viewDeviceForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        var formData = new FormData(this);
+        var params = new URLSearchParams();
+
+        for (var pair of formData.entries()) {
+            if (pair[1]) {
+                params.append(pair[0], pair[1]);
+            }
+        }
+
+        ajax({
+            url: '/api/physical-devices?' + params.toString(),
+            method: 'GET'
+        }).then(function(response) {
+            document.getElementById('viewResultCard').style.display = 'block';
+            renderDeviceTable(response, 'viewResultTableBody');
+            closeModal('viewDeviceModal');
+        }).catch(function(error) {
+            showToast('查询失败：' + error, 'error');
+        });
+    });
+
+    // 重置数据库
+    function resetDatabase() {
+        var confirmInput = document.getElementById('resetConfirmInput');
+        if (confirmInput.value !== 'RESET') {
+            showToast('请输入 "RESET" 确认重置操作', 'error');
+            return;
+        }
+
+        ajax({
+            url: '/api/physical-reset',
+            method: 'POST'
+        }).then(function(response) {
+            showToast('数据库重置成功', 'success');
+            closeModal('resetModal');
+            loadDevices();
+            confirmInput.value = '';
+        }).catch(function(error) {
+            showToast('重置数据库失败：' + error, 'error');
+        });
+    }
+</script>
+{% endblock %}

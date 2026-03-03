@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>系统说明 - 虚拟机设备管理系统</title>
+    <!-- 引入本地样式表 -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <script>
+        var currentPage = 'help';
+    </script>
+    <style>
+        /* 内容容器布局 */
+        .content-layout {
+            display: flex;
+            gap: 20px;
+            position: relative;
+        }
+        
+        /* 侧边栏目录样式 */
+        .help-sidebar {
+            width: 190px;
+            background-color: #f8f9fa;
+            border-left: 1px solid #dee2e6;
+            padding: 20px 10px;
+            height: calc(100vh - 60px);
+            position: fixed;
+            right: 0;
+            top: 60px;
+            overflow-y: auto;
+            z-index: 999;
+        }
+        
+        .help-sidebar h3 {
+            font-size: 16px;
+            margin-bottom: 15px;
+            padding: 10px;
+            border-bottom: 1px solid #dee2e6;
+            background-color: #6c757d;
+            color: white;
+            border-radius: 3px;
+            text-align: center;
+        }
+        
+        .help-sidebar ul {
+            list-style: none;
+            padding-left: 0;
+        }
+        
+        .help-sidebar li {
+            margin-bottom: 10px;
+        }
+        
+        .help-sidebar a {
+            color: #495057;
+            text-decoration: none;
+            font-size: 14px;
+            display: block;
+            padding: 5px 10px;
+            border-radius: 3px;
+            transition: all 0.3s ease;
+        }
+        
+        .help-sidebar a:hover {
+            background-color: #e9ecef;
+            color: #007bff;
+        }
+        
+        .help-sidebar a.active {
+            background-color: #e9ecef;
+            color: #007bff;
+            font-weight: 500;
+        }
+        
+        /* 主内容区样式 */
+        .help-content {
+            flex: 1;
+            margin-right: 210px;
+        }
+        
+        pre {
+            background-color: #f8f9fa;
+            padding: 10px;
+            border-radius: 3px;
+            overflow-x: auto;
+            font-size: 14px;
+        }
+        
+        .section {
+            margin: 20px 0;
+            padding: 15px;
+            border-radius: 5px;
+            background-color: #f9f9f9;
+        }
+        
+        .section h2 {
+            border-bottom: 2px solid #ddd;
+            padding-bottom: 10px;
+            margin-bottom: 15px;
+        }
+        
+        .section h3 {
+            font-size: 18px;
+            margin-top: 15px;
+            margin-bottom: 10px;
+        }
+        
+        table {
+            font-size: 14px;
+            margin-bottom: 20px;
+            width: 100%;
+            table-layout: fixed;
+        }
+        
+        table th:nth-child(1), table td:nth-child(1) {
+            width: 25%;
+        }
+        
+        table th:nth-child(2), table td:nth-child(2) {
+            width: 15%;
+        }
+        
+        table th:nth-child(3), table td:nth-child(3) {
+            width: 10%;
+        }
+        
+        table th:nth-child(4), table td:nth-child(4) {
+            width: 50%;
+        }
+        
+        /* 响应式调整 */
+        @media (max-width: 992px) {
+            .help-sidebar {
+                display: none;
+            }
+            
+            .help-content {
+                margin-right: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- 顶部导航栏 -->
+    <nav class="navbar">
+        <div class="container">
+            <div class="navbar-brand d-flex align-items-center mb-0 p-0 m-0">
+                <img src="{{ url_for('static', filename='logo.png') }}" alt="Logo" style="height: 30px; margin: 0 5px 0 0; padding: 0;">
+                <h1 style="font-size: 1.2rem; margin: 0; padding: 0;">设备管理系统V1.4.0</h1>
+            </div>
+            <!-- 顶部导航只保留系统说明和退出登录 -->
+            <ul class="navbar-nav">
+                <li class="nav-item">
+                    <div class="user-account">
+                        {{ session.username }}
+                    </div>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link active" href="/help">系统说明</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="/logout">退出登录</a>
+                </li>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- 主内容布局 -->
+    <div class="main-content">
+        <!-- 左侧导航栏 -->
+        <div class="sidebar">
+            <ul class="sidebar-nav">
+                <li class="nav-item">
+                    <a class="nav-link" href="/">虚拟机管理</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="/physical">物理机管理</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="/check">监控检查</a>
+                </li>
+                {% if session.role == 'admin' %}
+                <li class="nav-item">
+                    <a class="nav-link" href="/stats">数据统计</a>
+                </li>
+                {% endif %}
+                {% if session.role == 'admin' %}
+                <li class="nav-item">
+                    <a class="nav-link" href="/department">部门管理</a>
+                </li>
+                {% endif %}
+                {% if session.role == 'admin' %}
+                <li class="nav-item">
+                    <a class="nav-link" href="/user_management">账号管理</a>
+                </li>
+                {% endif %}
+            </ul>
+        </div>
+
+        <!-- 右侧内容区域 -->
+        <div class="content-area">
+            <div class="content-container">
+                <!-- 内容标题 -->
+                <h1>系统说明</h1>
+                
+                <!-- 主内容区 -->
+                <div class="help-content">
+        <!-- 说明内容 -->
+        <div class="section" id="overview">
+            <h2>系统概述</h2>
+            <p>本系统是一个基于Flask框架开发的设备管理系统，提供虚拟机和物理机的信息管理、监控检查功能。支持设备信息的增删改查、批量导入/导出，以及通过SSH获取设备系统状态（CPU、内存、磁盘使用率）。系统支持多用户权限管理，包括管理员和普通用户两种角色，并实现了基于部门的权限控制，确保数据安全和访问隔离。</p>
+            <p>系统版本：V1.4.0</p>
+            
+        </div>
+
+        <div class="section" id="dependencies">
+            <h2>环境依赖</h2>
+            <h3>开发语言</h3>
+            <ul>
+                <li>Python 3.x</li>
+            </ul>
+            <h3>核心框架和库</h3>
+            <ul>
+                <li>Flask (Web应用框架)</li>
+                <li>sqlite3 (数据库，Python标准库)</li>
+                <li>paramiko (SSH客户端，用于获取设备系统信息)</li>
+                <li>openpyxl (Excel文件处理，用于批量导入/导出)</li>
+                <li>pandas (数据处理库，用于Excel文件解析)</li>
+            </ul>
+            <h3>安装依赖</h3>
+            <pre>pip install flask paramiko openpyxl pandas</pre>
+        </div>
+
+        <div class="section" id="structure">
+            <h2>项目结构</h2>
+            <pre>虚拟机设备管理系统/
+├── app.py                 # 主应用入口
+├── init_db.py             # 数据库初始化脚本
+├── data/
+│   ├── device_management.db   # SQLite数据库文件
+│   └── backups/               # 数据库备份目录
+├── static/                # 静态文件目录
+│   ├── logo.png              # 系统logo图片
+│   ├── styles.css            # 全局样式表
+│   └── js/                   # JavaScript文件目录
+│       └── common.js         # 公共JS工具函数
+├── templates/
+│   ├── help.html          # 系统说明页面
+│   ├── index.html         # 虚拟机管理页面
+│   ├── physical.html      # 物理机管理页面
+│   ├── check.html         # 设备状态监控页面
+│   ├── login.html         # 登录页面
+│   ├── user_management.html # 账号管理页面
+│   ├── department.html    # 部门管理页面
+│   ├── stats.html         # 数据统计页面
+│   └── error.html        # 错误页面
+├── 物理机模板.xlsx         # 物理机数据导入模板
+└── 虚拟机模板.xlsx         # 虚拟机数据导入模板
+</pre>
+        </div>
+
+        <div class="section" id="configuration">
+            <h2>配置说明</h2>
+            <h3>应用配置</h3>
+            <p>在app.py中，Flask应用配置如下：</p>
+            <pre>app.run(debug=True, host='0.0.0.0', port=5000)</pre>
+            <ul>
+                <li>debug: 调试模式，开发环境使用</li>
+                <li>host: 监听所有网络接口</li>
+                <li>port: 服务器端口号5000</li>
+            </ul>
+        </div>
+
+        <div class="section" id="database">
+            <h2>数据库结构</h2>
+            <h3>数据库文件: data/device_management.db</h3>
+            <h3>表名: devices</h3>
+            <table class="table table-sm table-bordered">
+                <thead class="table-light">
+                    <tr>
+                        <th>列名</th>
+                        <th>类型</th>
+                        <th>主键</th>
+                        <th>描述</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr><td>id</td><td>INTEGER</td><td>是</td><td>自增主键</td></tr>
+                    <tr><td>product</td><td>TEXT</td><td>否</td><td>产品</td></tr>
+                    <tr><td>department</td><td>TEXT</td><td>否</td><td>所属部门</td></tr>
+                    <tr><td>group</td><td>TEXT</td><td>否</td><td>组别</td></tr>
+                    <tr><td>vm_name</td><td>TEXT</td><td>否</td><td>虚拟机名称</td></tr>
+                    <tr><td>ip_address</td><td>TEXT</td><td>否</td><td>IP地址</td></tr>
+                    <tr><td>username</td><td>TEXT</td><td>否</td><td>登录用户名</td></tr>
+                    <tr><td>password</td><td>TEXT</td><td>否</td><td>登录密码</td></tr>
+                    <tr><td>created_at</td><td>TIMESTAMP</td><td>否</td><td>创建时间</td></tr>
+                    <tr><td>updated_at</td><td>TIMESTAMP</td><td>否</td><td>更新时间</td></tr>
+                    <tr><td>remark</td><td>TEXT</td><td>否</td><td>备注</td></tr>
+                </tbody>
+            </table>
+
+            <h3>表名: physical_devices</h3>
+            <table class="table table-sm table-bordered">
+                <thead class="table-light">
+                    <tr>
+                        <th>列名</th>
+                        <th>类型</th>
+                        <th>主键</th>
+                        <th>描述</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr><td>id</td><td>INTEGER</td><td>是</td><td>自增主键</td></tr>
+                    <tr><td>department</td><td>TEXT</td><td>否</td><td>所属部门</td></tr>
+                    <tr><td>device_code</td><td>TEXT</td><td>否</td><td>设备编号</td></tr>
+                    <tr><td>ip_address</td><td>TEXT</td><td>否</td><td>管理IP地址（唯一）</td></tr>
+                    <tr><td>oob_ip</td><td>TEXT</td><td>否</td><td>带外管理IP</td></tr>
+                    <tr><td>account</td><td>TEXT</td><td>否</td><td>SSH登录账号</td></tr>
+                    <tr><td>password</td><td>TEXT</td><td>否</td><td>SSH登录密码</td></tr>
+                    <tr><td>remark</td><td>TEXT</td><td>否</td><td>备注</td></tr>
+                    <tr><td>created_at</td><td>TIMESTAMP</td><td>否</td><td>创建时间</td></tr>
+                </tbody>
+            </table>
+
+            <h3>表名: roles</h3>
+            <table class="table table-sm table-bordered">
+                <thead class="table-light">
+                    <tr>
+                        <th>列名</th>
+                        <th>类型</th>
+                        <th>主键</th>
+                        <th>描述</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr><td>id</td><td>INTEGER</td><td>是</td><td>自增主键</td></tr>
+                    <tr><td>name</td><td>TEXT</td><td>否</td><td>角色名称（admin/user）</td></tr>
+                    <tr><td>description</td><td>TEXT</td><td>否</td><td>角色描述</td></tr>
+                </tbody>
+            </table>
+
+            <h3>表名: users</h3>
+            <table class="table table-sm table-bordered">
+                <thead class="table-light">
+                    <tr>
+                        <th>列名</th>
+                        <th>类型</th>
+                        <th>主键</th>
+                        <th>描述</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr><td>id</td><td>INTEGER</td><td>是</td><td>自增主键</td></tr>
+                    <tr><td>username</td><td>TEXT</td><td>否</td><td>登录用户名</td></tr>
+                    <tr><td>password</td><td>TEXT</td><td>否</td><td>登录密码</td></tr>
+                    <tr><td>role_id</td><td>INTEGER</td><td>否</td><td>角色ID，外键关联roles表</td></tr>
+                    <tr><td>department</td><td>TEXT</td><td>否</td><td>所属部门</td></tr>
+                    <tr><td>created_at</td><td>TIMESTAMP</td><td>否</td><td>创建时间</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="section" id="features">
+            <h2>功能说明</h2>
+            <h3>1. 登录认证</h3>
+            <ul>
+                <li>用户登录和退出功能</li>
+                <li>基于角色的权限管理（管理员/普通用户）</li>
+                <li>基于部门的权限控制，普通用户只能查看和修改同部门设备</li>
+                <li>默认用户：管理员(admin/admin123)、普通用户(user/user123)</li>
+            </ul>
+            <h3>2. 虚拟机管理</h3>
+            <ul>
+                <li>虚拟机信息的增删改查</li>
+                <li>批量导入/导出虚拟机信息</li>
+                <li>按条件筛选和搜索（支持产品、部门、组别、虚拟机名称、IP地址、账号、密码、备注）</li>
+                <li>部门字段支持手动输入或快速选择</li>
+                <li>权限控制：管理员可查看所有设备密码和执行所有操作；普通用户只能查看和修改同部门设备，密码对其他部门设备隐藏</li>
+            </ul>
+            <h3>3. 物理机管理</h3>
+            <ul>
+                <li>物理机信息的增删改查</li>
+                <li>批量导入/导出物理机信息</li>
+                <li>按条件筛选和搜索（支持部门、设备编码、IP地址、带外IP、账号、密码）</li>
+                <li>部门字段支持手动输入或快速选择</li>
+                <li>权限控制：管理员可查看所有设备密码和执行所有操作；普通用户只能查看和修改同部门设备，密码对其他部门设备隐藏</li>
+            </ul>
+            <h3>4. 设备状态监控</h3>
+            <ul>
+                <li>批量ping检查设备在线状态</li>
+                <li>获取设备响应延迟（ms）</li>
+                <li>通过SSH获取CPU、内存、磁盘使用率</li>
+                <li>资源占用率超过80%时字体标红加粗</li>
+                <li>所有登录用户均可监控所有设备</li>
+            </ul>
+            <h3>5. 账号管理</h3>
+            <ul>
+                <li>仅管理员可见</li>
+                <li>用户列表展示、添加、编辑、删除</li>
+                <li>部门字段管理，管理员默认"管理"，普通用户默认"无"</li>
+                <li>部门通过下拉列表选择，从现有设备部门中获取</li>
+            </ul>
+            <h3>6. 数据统计</h3>
+            <ul>
+                <li>仅管理员可见</li>
+                <li>展示设备资源使用趋势图表</li>
+                <li>按季度和年份统计设备数量</li>
+                <li>支持虚拟机和物理机的数量统计</li>
+                <li>图表可视化展示，方便直观了解资源使用情况</li>
+            </ul>
+            <h3>7. 导航栏功能</h3>
+            <ul>
+                <li>顶部导航栏显示系统名称和版本</li>
+                <li>右上角显示当前用户信息，悬停时显示包含用户角色、部门的下拉菜单</li>
+                <li>左侧导航栏根据用户角色显示不同的功能菜单</li>
+                <li>左侧导航栏显示当前页面的选中状态，使用淡蓝色高亮</li>
+            </ul>
+            <h3>7. 提示框功能</h3>
+            <ul>
+                <li>操作成功或失败时显示Toast提示框</li>
+                <li>提示框显示位置在页面右上角</li>
+                <li>支持错误、成功、警告和信息四种类型的提示</li>
+                <li>提示框2秒后自动消失，不中断用户操作</li>
+            </ul>
+        </div>
+
+        <div class="section" id="usage">
+            <h2>运行方式</h2>
+            <h3>初始化数据库</h3>
+            <pre>python init_db.py</pre>
+            <h3>启动服务器</h3>
+            <pre>python app.py</pre>
+            
+        </div>
+
+        <div class="section" id="instructions">
+            <h2>使用说明</h2>
+            <h3>1. 登录系统</h3>
+            <ul>
+                <li>访问登录页面：http://127.0.0.1:5000/login</li>
+                <li>输入用户名和密码</li>
+                <li>点击登录按钮进入系统</li>
+            </ul>
+            <h3>2. 添加设备</h3>
+            <ul>
+                <li>在对应设备管理页面点击"添加设备"按钮</li>
+                <li>填写设备信息，所属部门可手动输入或从下拉列表选择</li>
+                <li>点击提交保存设备信息</li>
+            </ul>
+            <h3>3. 批量导入</h3>
+            <ul>
+                <li>下载对应设备的Excel模板</li>
+                <li>按照模板格式填写设备信息，所属部门可为空</li>
+                <li>使用"批量导入"功能导入数据</li>
+                <li>导入成功或失败时会显示提示框</li>
+            </ul>
+            <h3>4. 设备状态监控</h3>
+            <ul>
+                <li>点击导航栏中的"监控检查"链接</li>
+                <li>系统自动获取所有设备的状态信息</li>
+                <li>资源占用率超过80%时会自动标红加粗</li>
+                <li>所有登录用户均可监控所有设备</li>
+            </ul>
+            <h3>5. 账号管理</h3>
+            <ul>
+                <li>仅管理员可见账号管理页面</li>
+                <li>可以添加、编辑、删除用户</li>
+                <li>设置用户角色（管理员/普通用户）</li>
+                <li>设置用户所属部门，管理员默认"管理"，普通用户默认"无"</li>
+                <li>部门从现有设备部门中获取，通过下拉列表选择</li>
+            </ul>
+            <h3>6. 查看用户信息</h3>
+            <ul>
+                <li>在顶部导航栏右上角点击或悬停用户名</li>
+                <li>会显示包含用户角色和部门的下拉菜单</li>
+            </ul>
+            <h3>7. 刷新数据</h3>
+            <ul>
+                <li>在设备管理页面点击"刷新数据"按钮</li>
+                <li>系统会重新加载设备列表</li>
+                <li>刷新成功后会显示提示框</li>
+            </ul>
+            <h3>8. 权限说明</h3>
+            <ul>
+                <li>管理员：可以查看所有设备密码，执行所有操作（添加、查看、修改、删除）</li>
+                <li>普通用户：只能查看和修改同部门设备，密码对其他部门设备隐藏</li>
+                <li>普通用户无法删除设备，只有管理员可以删除</li>
+                <li>普通用户无法访问账号管理页面</li>
+                <li>监控功能不受部门限制，所有用户均可监控所有设备</li>
+                <li>操作列按钮根据权限动态显示：普通用户只能看到编辑按钮（同部门设备），管理员可以看到编辑和删除按钮</li>
+            </ul>
+        </div>
+
+        <div class="section" id="notes">
+            <h2>注意事项</h2>
+            <h3>1. SSH连接要求</h3>
+            <ul>
+                <li>设备需要启用SSH服务</li>
+                <li>需要提供正确的用户名和密码</li>
+                <li>防火墙需要允许SSH连接（默认端口22）</li>
+            </ul>
+            <h3>2. 数据安全性</h3>
+            <ul>
+                <li>数据库文件建议定期备份</li>
+                <li>密码以明文形式存储，生产环境建议加密</li>
+                <li>系统使用SQLite数据库，适合中小型应用场景</li>
+                <li>基于部门的权限控制确保数据隔离</li>
+            </ul>
+            <h3>3. 权限管理</h3>
+            <ul>
+                <li>管理员：可以查看所有设备密码，执行所有操作（添加、查看、修改、删除）</li>
+                <li>普通用户：只能查看和修改同部门设备，密码对其他部门设备隐藏</li>
+                <li>普通用户无法删除设备，只有管理员可以删除</li>
+                <li>普通用户无法访问账号管理页面</li>
+                <li>监控功能不受部门限制，所有用户均可监控所有设备</li>
+                <li>部门字段管理：管理员默认"管理"，普通用户默认"无"</li>
+            </ul>
+            <h3>4. 系统性能</h3>
+            <ul>
+                <li>支持管理约1000条设备数据</li>
+                <li>监控检查功能会同时建立多个SSH连接，可能会消耗较多系统资源</li>
+                <li>建议在设备数量较多时分批进行监控检查</li>
+                <li>刷新数据提示采用Toast提示框，2秒后自动消失，不中断用户操作</li>
+                <li>提示框显示位置在页面右上角，支持错误、成功、警告和信息四种类型</li>
+            </ul>
+        </div>
+
+        <div class="section" id="contact">
+            <h2>联系作者</h2>
+            <div style="background-color: #f8f9fa; padding: 20px; border-radius: 5px; border: 1px solid #dee2e6;">
+                <p>如果您在使用过程中遇到任何问题或有任何建议，欢迎联系作者：</p>
+                <p style="margin-top: 10px;"><strong>邮箱：</strong> lijie57461@hundsun.com</p>
+                <p style="margin-top: 5px;"><strong>邮箱：</strong> 1187416221@qq.com</p>
+                <p style="margin-top: 5px;"><strong>邮箱：</strong> lijie021011@163.com</p>
+            </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 侧边栏目录 -->
+    <div class="help-sidebar">
+        <h3>目录</h3>
+        <ul>
+            <li><a href="#overview">系统概述</a></li>
+            <li><a href="#dependencies">环境依赖</a></li>
+            <li><a href="#structure">项目结构</a></li>
+            <li><a href="#configuration">配置说明</a></li>
+            <li><a href="#database">数据库结构</a></li>
+            <li><a href="#features">功能说明</a></li>
+            <li><a href="#usage">运行方式</a></li>
+            <li><a href="#instructions">使用说明</a></li>
+            <li><a href="#notes">注意事项</a></li>
+            <li><a href="#contact">联系作者</a></li>
+        </ul>
+    </div>
+    
+    <!-- 返回到顶部按钮 -->
+    <div class="back-to-top" id="backToTop" style="right: 205px;">
+        ↑
+    </div>
+    
+    <script>
+        // 返回到顶部
+        function scrollToTop() {
+            // 找到滚动的容器.content-area
+            const contentArea = document.querySelector('.content-area');
+            if (contentArea) {
+                // 滚动到顶部
+                contentArea.scrollTop = 0;
+            } else {
+                // 备选方案，滚动整个窗口
+                window.scrollTo(0, 0);
+            }
+        }
+        
+        // 为返回顶部按钮添加点击事件监听器
+        document.addEventListener('DOMContentLoaded', function() {
+            const backToTopButton = document.getElementById('backToTop');
+            if (backToTopButton) {
+                backToTopButton.addEventListener('click', scrollToTop);
+            }
+        });
+        
+        // 高亮当前章节的侧边栏链接
+        function highlightActiveSection() {
+            const sections = document.querySelectorAll('.section');
+            const sidebarLinks = document.querySelectorAll('.help-sidebar a');
+            
+            let currentSection = '';
+            
+            sections.forEach(section => {
+                const sectionTop = section.offsetTop;
+                const sectionHeight = section.clientHeight;
+                if (window.pageYOffset >= sectionTop - 100) {
+                    currentSection = section.getAttribute('id');
+                }
+            });
+            
+            sidebarLinks.forEach(link => {
+                link.classList.remove('active');
+                if (link.getAttribute('href') === `#${currentSection}`) {
+                    link.classList.add('active');
+                }
+            });
+        }
+        
+        // 监听滚动事件
+        window.addEventListener('scroll', highlightActiveSection);
+        
+        // 页面加载时初始化高亮
+        window.addEventListener('load', highlightActiveSection);
+    </script>
+</body>
+</html>

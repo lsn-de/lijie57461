@@ -1,0 +1,731 @@
+{% extends "base.html" %}
+
+{% block title %}部门管理 - 设备管理系统{% endblock %}
+
+{% block page_id %}department{% endblock %}
+
+{% block extra_css %}
+<!-- 引入 Font Awesome -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css">
+<!-- 引入 jQuery -->
+<script src="https://cdn.jsdelivr.net/npm/jquery@3.6.0/dist/jquery.min.js"></script>
+<!-- 自定义样式 -->
+<style>
+    /* 操作列按钮样式 */
+    .btn-group-horizontal {
+        display: flex;
+        flex-direction: row;
+        gap: 5px;
+    }
+
+    /* 操作按钮样式 */
+    .btn {
+        white-space: nowrap;
+    }
+
+    /* 表格单元格样式 */
+    table td {
+        vertical-align: middle;
+    }
+
+    /* 表格内容换行 */
+    table {
+        word-wrap: break-word;
+        word-break: break-all;
+    }
+
+    /* 分页样式 - 强制水平排列 */
+    #pagination {
+        display: flex !important;
+        list-style: none !important;
+        padding: 0 !important;
+        margin: 0 auto !important;
+        justify-content: center !important;
+    }
+
+    #pagination li {
+        display: inline-block !important;
+        margin: 0 !important;
+        list-style: none !important;
+    }
+
+    #pagination li::before {
+        display: none !important;
+    }
+
+    #pagination li a {
+        display: inline-block !important;
+        padding: 8px 16px !important;
+        border: 1px solid #dee2e6 !important;
+        background-color: #fff !important;
+        color: #007bff !important;
+        text-decoration: none !important;
+        cursor: pointer !important;
+        line-height: 1.5 !important;
+    }
+
+    #pagination li:first-child a {
+        border-top-left-radius: 4px !important;
+        border-bottom-left-radius: 4px !important;
+    }
+
+    #pagination li:last-child a {
+        border-top-right-radius: 4px !important;
+        border-bottom-right-radius: 4px !important;
+    }
+
+    #pagination li:not(:first-child) a {
+        margin-left: -1px !important;
+    }
+
+    #pagination li a:hover {
+        background-color: #e9ecef !important;
+        color: #0056b3 !important;
+        border-color: #dee2e6 !important;
+    }
+
+    #pagination li.active a {
+        background-color: #007bff !important;
+        color: #fff !important;
+        border-color: #007bff !important;
+    }
+
+    #pagination li.disabled a {
+        color: #6c757d !important;
+        pointer-events: none !important;
+        background-color: #fff !important;
+        border-color: #dee2e6 !important;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- 功能按钮区域 -->
+<div class="action-buttons">
+    <button class="btn btn-primary" onclick="openAddModal()">
+        添加记录
+    </button>
+
+    <button class="btn btn-success" onclick="openImportModal()">
+        导入数据
+    </button>
+
+    <button class="btn btn-danger" onclick="openResetModal()">
+            重置数据
+        </button>
+</div>
+
+<!-- 搜索和筛选 -->
+<div class="card">
+    <div class="card-header">
+        <h5>搜索筛选</h5>
+    </div>
+    <div class="card-body">
+        <div class="search-container">
+            <input type="text" class="search-input" id="searchDepartment" list="searchDepartmentList" placeholder="搜索部门">
+            <datalist id="searchDepartmentList">
+                <!-- 部门选项将通过JavaScript动态添加 -->
+            </datalist>
+            <input type="text" class="search-input" id="searchGroup" list="searchGroupList" placeholder="搜索组别">
+            <datalist id="searchGroupList">
+                <!-- 组别选项将通过JavaScript动态添加 -->
+            </datalist>
+            <button class="btn btn-primary" onclick="searchRecords()">搜索</button>
+            <button class="btn btn-secondary" onclick="resetSearch()">重置</button>
+        </div>
+    </div>
+</div>
+
+<!-- 部门管理记录表格 -->
+<div class="card">
+    <div class="card-header">
+        <h5>部门管理记录</h5>
+    </div>
+    <div class="card-body">
+        <div id="table-container">
+            <table style="table-layout: fixed;">
+                <thead>
+                    <tr>
+                        <th style="width: 60px;">ID</th>
+                        <th style="width: 300px;">部门</th>
+                        <th style="width: 300px;">组别</th>
+                        <th style="width: 150px;">操作</th>
+                    </tr>
+                </thead>
+                <tbody id="recordTableBody">
+                    <!-- 记录数据将通过JavaScript动态加载 -->
+                </tbody>
+            </table>
+        </div>
+
+        <!-- 分页控件 -->
+        <div class="mt-3 d-flex justify-content-between align-items-center">
+            <div id="paginationInfo" class="text-muted">
+                显示 0 条，共 0 条
+            </div>
+            <nav aria-label="Page navigation">
+                <ul class="pagination" id="pagination">
+                    <!-- 分页按钮将通过JavaScript动态生成 -->
+                </ul>
+            </nav>
+        </div>
+    </div>
+</div>
+
+<!-- 添加记录模态框 -->
+<div class="modal" id="addRecordModal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h5 class="modal-title">添加部门管理记录</h5>
+            <span class="close" onclick="closeModal('addRecordModal')">&times;</span>
+        </div>
+        <div class="modal-body">
+            <form id="addRecordForm">
+                <div class="form-group">
+                    <label class="form-label">部门</label>
+                    <input type="text" class="form-control" id="addDepartment" list="departmentList" placeholder="请输入部门名称">
+                    <datalist id="departmentList">
+                        <!-- 部门选项将通过JavaScript动态添加 -->
+                    </datalist>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">组别</label>
+                    <input type="text" class="form-control" id="addGroup" list="groupList" placeholder="请输入组别名称">
+                    <datalist id="groupList">
+                        <!-- 组别选项将通过JavaScript动态添加 -->
+                    </datalist>
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeModal('addRecordModal')">取消</button>
+            <button class="btn btn-primary" onclick="addRecord()">保存</button>
+        </div>
+    </div>
+</div>
+
+<!-- 编辑记录模态框 -->
+<div class="modal" id="editRecordModal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h5 class="modal-title">编辑部门管理记录</h5>
+            <span class="close" onclick="closeModal('editRecordModal')">&times;</span>
+        </div>
+        <div class="modal-body">
+            <form id="editRecordForm">
+                <input type="hidden" id="editRecordId">
+                <div class="form-group">
+                    <label class="form-label">部门</label>
+                    <input type="text" class="form-control" id="editDepartment" placeholder="请输入部门名称">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">组别</label>
+                    <input type="text" class="form-control" id="editGroup" placeholder="请输入组别名称">
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeModal('editRecordModal')">取消</button>
+            <button class="btn btn-primary" onclick="updateRecord()">保存</button>
+        </div>
+    </div>
+</div>
+
+<!-- 导入数据模态框 -->
+<div class="modal" id="importModal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h5 class="modal-title">导入部门数据</h5>
+            <span class="close" onclick="closeModal('importModal')">&times;</span>
+        </div>
+        <div class="modal-body">
+            <form id="importForm">
+                <div class="form-group">
+                    <label class="form-label">Excel文件</label>
+                    <input type="file" class="form-control" id="importFile" accept=".xlsx, .xls" required>
+                </div>
+                <div class="alert alert-info">
+                    <strong>导入说明：</strong>
+                    <ul>
+                        <li>支持 .xlsx 和 .xls 格式的Excel文件</li>
+                        <li>Excel文件表头必须为：部门、组别</li>
+                        <li>组别字段中的多个团队会自动拆分成单独的记录</li>
+                        <li>导入会清空现有数据并重新导入</li>
+                    </ul>
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeModal('importModal')">取消</button>
+            <button class="btn btn-primary" onclick="importData()">导入</button>
+        </div>
+    </div>
+</div>
+
+<!-- 重置数据模态框 -->
+<div class="modal fade" id="resetModal" tabindex="-1" aria-labelledby="resetModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title" id="resetModalLabel">警告：重置部门数据</h5>
+            </div>
+            <div class="modal-body">
+                <p class="text-danger">此操作将清空所有部门数据，且无法恢复！</p>
+                <p>请输入 "RESET" 确认重置操作：</p>
+                <input type="text" class="form-control" id="resetConfirmInput" placeholder="请输入 RESET">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('resetModal')">取消</button>
+                <button type="button" class="btn btn-danger" onclick="resetData()">确认重置</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // 全局变量
+    let currentPageNum = 1;
+    const pageSize = 10;
+    let totalRecords = 0;
+    let records = [];
+    
+    // 页面加载完成后执行
+    $(document).ready(function() {
+        loadRecords();
+    });
+    
+    // 打开模态框
+    function openModal(modalId) {
+        const modal = document.getElementById(modalId);
+        modal.style.display = 'flex';
+        modal.classList.add('show');
+        document.body.classList.add('modal-open');
+    }
+    
+    // 关闭模态框
+    function closeModal(modalId) {
+        const modal = document.getElementById(modalId);
+        if (modal) {
+            modal.style.display = 'none';
+            modal.classList.remove('show');
+        }
+        document.body.classList.remove('modal-open');
+    }
+    
+    // 打开添加记录模态框
+    function openAddModal() {
+        openModal('addRecordModal');
+    }
+    
+    // 打开导入数据模态框
+    function openImportModal() {
+        openModal('importModal');
+    }
+    
+    // 打开重置数据模态框
+    function openResetModal() {
+        openModal('resetModal');
+    }
+    
+    // 清空数据
+    function resetData() {
+        var confirmInput = document.getElementById('resetConfirmInput');
+        if (confirmInput.value !== 'RESET') {
+            showToast('请输入 "RESET" 确认重置操作', 'error');
+            return;
+        }
+
+        $.ajax({
+            url: '/api/department-management/reset',
+            type: 'POST',
+            success: function(data) {
+                showToast('数据清空成功', 'success');
+                closeModal('resetModal');
+                loadRecords();
+                confirmInput.value = '';
+            },
+            error: function(xhr, status, error) {
+                showToast('清空数据失败：' + error.message, 'error');
+            }
+        });
+    }
+    
+    // 导入数据
+    function importData() {
+        const fileInput = $('#importFile')[0];
+        if (!fileInput.files || fileInput.files.length === 0) {
+            showToast('请选择要导入的Excel文件', 'warning');
+            return;
+        }
+        
+        const formData = new FormData();
+        formData.append('file', fileInput.files[0]);
+        
+        $.ajax({
+            url: '/api/department-management/import',
+            type: 'POST',
+            data: formData,
+            processData: false,
+            contentType: false,
+            success: function(data) {
+                showToast('导入数据成功：' + data.message, 'success');
+                closeModal('importModal');
+                loadRecords();
+                // 重置表单
+                $('#importForm')[0].reset();
+            },
+            error: function(xhr, status, error) {
+                showToast('导入数据失败：' + xhr.responseJSON.error, 'error');
+            }
+        });
+    }
+    
+    // 点击模态框外部关闭
+    window.onclick = function(event) {
+        var modals = document.getElementsByClassName('modal');
+        for (var i = 0; i < modals.length; i++) {
+            var modal = modals[i];
+            if (event.target == modal) {
+                modal.style.display = 'none';
+            }
+        }
+    }
+    
+    // 加载记录数据
+    function loadRecords() {
+        $.ajax({
+            url: '/api/department-management',
+            type: 'GET',
+            success: function(data) {
+                records = data;
+                totalRecords = data.length;
+                renderRecords();
+                updatePagination();
+                updateSearchDropdowns();
+                updateAddRecordDropdowns();
+            },
+            error: function(xhr, status, error) {
+                showToast('加载记录失败：' + xhr.responseJSON.error, 'error');
+            }
+        });
+    }
+    
+    // 更新搜索的datalist
+    function updateSearchDropdowns() {
+        const departments = [...new Set(records.map(record => record.department).filter(d => d !== undefined))];
+        const groups = [...new Set(records.map(record => record.device_group).filter(g => g !== undefined))];
+        
+        const deptDatalist = document.getElementById('searchDepartmentList');
+        deptDatalist.innerHTML = '';
+        departments.forEach(dept => {
+            const option = document.createElement('option');
+            option.value = dept;
+            deptDatalist.appendChild(option);
+        });
+        
+        const groupDatalist = document.getElementById('searchGroupList');
+        groupDatalist.innerHTML = '';
+        groups.forEach(group => {
+            const option = document.createElement('option');
+            option.value = group;
+            groupDatalist.appendChild(option);
+        });
+    }
+    
+    // 更新添加记录的下拉列表
+    function updateAddRecordDropdowns() {
+        const departments = [...new Set(records.map(record => record.department).filter(d => d !== undefined))];
+        const groups = [...new Set(records.map(record => record.device_group).filter(g => g !== undefined))];
+        
+        const deptDatalist = document.getElementById('departmentList');
+        deptDatalist.innerHTML = '';
+        departments.forEach(dept => {
+            const option = document.createElement('option');
+            option.value = dept;
+            deptDatalist.appendChild(option);
+        });
+        
+        const groupDatalist = document.getElementById('groupList');
+        groupDatalist.innerHTML = '';
+        groups.forEach(group => {
+            const option = document.createElement('option');
+            option.value = group;
+            groupDatalist.appendChild(option);
+        });
+    }
+    
+    // 渲染记录表格
+    function renderRecords() {
+        const tableBody = $('#recordTableBody');
+        tableBody.empty();
+        
+        const startIndex = (currentPageNum - 1) * pageSize;
+        const endIndex = startIndex + pageSize;
+        const pageRecords = records.slice(startIndex, endIndex);
+        
+        if (pageRecords.length === 0) {
+            tableBody.append(`
+                <tr>
+                    <td colspan="4" class="text-center">暂无记录</td>
+                </tr>
+            `);
+        } else {
+            pageRecords.forEach(record => {
+                tableBody.append(`
+                    <tr>
+                        <td>${record.id}</td>
+                        <td>${record.department || '-'}</td>
+                        <td>${record.device_group || '-'}</td>
+                        <td>
+                            <div class="btn-group-horizontal">
+                                <button class="btn btn-success btn-sm" onclick="editRecord(${record.id})">修改</button>
+                                <button class="btn btn-danger btn-sm" onclick="deleteRecord(${record.id})">删除</button>
+                            </div>
+                        </td>
+                    </tr>
+                `);
+            });
+        }
+        
+        // 更新分页信息
+        $('#paginationInfo').text(`显示 ${startIndex + 1}-${Math.min(endIndex, totalRecords)} 条，共 ${totalRecords} 条`);
+    }
+    
+    // 更新分页控件
+    function updatePagination() {
+        const pagination = $('#pagination');
+        pagination.empty();
+        
+        const totalPages = Math.ceil(totalRecords / pageSize);
+        
+        // 上一页按钮
+        const prevLi = $('<li>').addClass('page-item');
+        if (currentPageNum === 1) {
+            prevLi.addClass('disabled');
+        }
+        prevLi.append($('<a>').addClass('page-link').attr('href', '#').text('上一页').click(function(e) {
+            e.preventDefault();
+            if (currentPageNum > 1) {
+                currentPageNum--;
+                renderRecords();
+                updatePagination();
+            }
+        }));
+        pagination.append(prevLi);
+        
+        // 页码按钮
+        for (let i = 1; i <= totalPages; i++) {
+            const li = $('<li>').addClass('page-item');
+            if (i === currentPageNum) {
+                li.addClass('active');
+            }
+            li.append($('<a>').addClass('page-link').attr('href', '#').text(i).click(function(e) {
+                e.preventDefault();
+                currentPageNum = i;
+                renderRecords();
+                updatePagination();
+            }));
+            pagination.append(li);
+        }
+        
+        // 下一页按钮
+        const nextLi = $('<li>').addClass('page-item');
+        if (currentPageNum === totalPages) {
+            nextLi.addClass('disabled');
+        }
+        nextLi.append($('<a>').addClass('page-link').attr('href', '#').text('下一页').click(function(e) {
+            e.preventDefault();
+            if (currentPageNum < totalPages) {
+                currentPageNum++;
+                renderRecords();
+                updatePagination();
+            }
+        }));
+        pagination.append(nextLi);
+    }
+    
+    // 跳转到指定页
+    function goToPage(page) {
+        const totalPages = Math.ceil(totalRecords / pageSize);
+        if (page < 1 || page > totalPages) return;
+        currentPageNum = page;
+        renderRecords();
+        updatePagination();
+    }
+    
+    // 搜索记录
+    function searchRecords() {
+        const searchDept = $('#searchDepartment').val().trim();
+        const searchGrp = $('#searchGroup').val().trim();
+        
+        // 这里可以实现更复杂的搜索逻辑
+        // 目前只是简单的前端筛选
+        let filteredRecords = records;
+        
+        if (searchDept) {
+            filteredRecords = filteredRecords.filter(record => record.department && record.department.includes(searchDept));
+        }
+        if (searchGrp) {
+            filteredRecords = filteredRecords.filter(record => record.device_group && record.device_group.includes(searchGrp));
+        }
+        
+        records = filteredRecords;
+        totalRecords = records.length;
+        currentPageNum = 1;
+        renderRecords();
+        updatePagination();
+    }
+    
+    // 重置搜索
+    function resetSearch() {
+        $('#searchDepartment').val('');
+        $('#searchGroup').val('');
+        loadRecords();
+    }
+    
+    // 添加记录
+    function addRecord() {
+        const department = $('#addDepartment').val().trim();
+        const group = $('#addGroup').val().trim();
+        
+        if (!department) {
+            showToast('请输入部门名称', 'warning');
+            return;
+        }
+        
+        $.ajax({
+            url: '/api/department-management',
+            type: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({
+                department: department,
+                device_group: group
+            }),
+            success: function(data) {
+                showToast('添加记录成功', 'success');
+                closeModal('addRecordModal');
+                loadRecords();
+                // 重置表单
+                $('#addRecordForm')[0].reset();
+            },
+            error: function(xhr, status, error) {
+                showToast('添加记录失败：' + xhr.responseJSON.error, 'error');
+            }
+        });
+    }
+    
+    // 全局变量，用于存储原始部门值
+    let originalDepartment = '';
+    
+    // 编辑记录
+    function editRecord(id) {
+        $.ajax({
+            url: `/api/department-management/${id}`,
+            type: 'GET',
+            success: function(data) {
+                $('#editRecordId').val(data.id);
+                $('#editDepartment').val(data.department || '');
+                $('#editGroup').val(data.device_group || '');
+                // 保存原始部门值
+                originalDepartment = data.department || '';
+                openModal('editRecordModal');
+            },
+            error: function(xhr, status, error) {
+                showToast('获取记录失败：' + xhr.responseJSON.error, 'error');
+            }
+        });
+    }
+    
+    // 更新记录
+    function updateRecord() {
+        const id = $('#editRecordId').val();
+        const department = $('#editDepartment').val().trim();
+        const deviceGroup = $('#editGroup').val().trim();
+        
+        if (!department) {
+            showToast('部门为必填字段', 'warning');
+            return;
+        }
+        
+        // 验证：如果部门发生了变化，不允许同时修改组别
+        if (department !== originalDepartment) {
+            showToast('修改部门时，不能同时修改组别，请先修改部门，然后再单独修改组别', 'warning');
+            return;
+        }
+        
+        $.ajax({
+            url: `/api/department-management/${id}`,
+            type: 'PUT',
+            contentType: 'application/json',
+            data: JSON.stringify({
+                department: department,
+                device_group: deviceGroup
+            }),
+            success: function(data) {
+                showToast('记录更新成功', 'success');
+                closeModal('editRecordModal');
+                loadRecords();
+            },
+            error: function(xhr, status, error) {
+                showToast('更新记录失败：' + xhr.responseJSON.error, 'error');
+            }
+        });
+    }
+    
+    // 删除记录
+    function deleteRecord(id) {
+        if (confirm('确定要删除这条记录吗？')) {
+            $.ajax({
+                url: `/api/department-management/${id}`,
+                type: 'DELETE',
+                success: function(data) {
+                    showToast('记录删除成功', 'success');
+                    loadRecords();
+                },
+                error: function(xhr, status, error) {
+                    showToast('删除记录失败：' + xhr.responseJSON.error, 'error');
+                }
+            });
+        }
+    }
+    
+    // 显示提示框
+    function showToast(message, type = 'info') {
+        const toast = $('#toast');
+        
+        // 先隐藏提示框
+        toast.removeClass('show');
+        
+        // 等待一小段时间，确保CSS过渡动画能够开始
+        setTimeout(() => {
+            // 设置提示信息和样式
+            toast.text(message);
+            
+            // 根据类型设置不同的背景色
+            if (type === 'success') {
+                toast.css('background-color', '#28a745');
+                toast.css('color', '#fff');
+            } else if (type === 'error') {
+                toast.css('background-color', '#dc3545');
+                toast.css('color', '#fff');
+            } else if (type === 'warning') {
+                toast.css('background-color', '#ffc107');
+                toast.css('color', '#333');
+            } else {
+                toast.css('background-color', '#333');
+                toast.css('color', '#fff');
+            }
+            
+            // 显示提示框
+            toast.addClass('show');
+            
+            // 2秒后自动隐藏
+            setTimeout(() => {
+                toast.removeClass('show');
+            }, 2000);
+        }, 50);
+    }
+</script>
+{% endblock %}

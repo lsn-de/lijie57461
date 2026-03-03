@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>错误 - 设备管理系统</title>
+    <!-- 引入本地样式表 -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+    <!-- 导航栏 -->
+    <nav class="navbar">
+        <div class="container">
+            <div class="navbar-brand">
+                <img src="{{ url_for('static', filename='logo.png') }}" alt="Logo">
+                设备管理系统V1.4.0
+            </div>
+            
+            <!-- 横向导航列表 -->
+            <ul class="navbar-nav">
+                <li class="nav-item">
+                    <a class="nav-link" href="/help">系统说明</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="/">虚拟机管理</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="/physical">物理机管理</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="/check">监控检查</a>
+                </li>
+                {% if session.role == 'admin' %}
+                <li class="nav-item">
+                    <a class="nav-link" href="/user_management">账号管理</a>
+                </li>
+                {% endif %}
+                <li class="nav-item">
+                    <a class="nav-link" href="/logout">退出登录</a>
+                </li>
+            </ul>
+        </div>
+    </nav>
+    
+    <div class="container mt-5">
+        <div class="card">
+            <div class="card-header">
+                <h5>错误信息</h5>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-danger">
+                    <h4 class="alert-heading">操作失败</h4>
+                    <p>{{ message }}</p>
+                    <hr>
+                    <p class="mb-0">
+                        <a href="javascript:history.back()" class="btn btn-secondary">返回上一页</a>
+                        <a href="/" class="btn btn-primary">返回首页</a>
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

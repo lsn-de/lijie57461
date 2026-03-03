@@ -1,0 +1,291 @@
+{% extends "base.html" %}
+
+{% block title %}设备监控检查 - 设备管理系统{% endblock %}
+
+{% block page_id %}check{% endblock %}
+
+{% block content %}
+<!-- 功能按钮区域 -->
+<div class="action-buttons">
+    <button type="button" class="btn btn-primary" onclick="checkDeviceStatus()" id="checkButton">
+        检查设备状态
+    </button>
+    <div class="mt-2" style="display: none;" id="checkProgress">
+        <div class="progress-bar" style="width: 0%" id="progressBar">
+            0%
+        </div>
+    </div>
+</div>
+
+<!-- 虚拟机设备状态检查结果表格 -->
+<div class="card mb-4">
+    <div class="card-header">
+        <h5>虚拟机设备状态检查结果</h5>
+    </div>
+    <div id="vm-table-container" class="card-body">
+        <table>
+            <thead>
+                <tr>
+                    <th class="ip-address-col">IP地址</th>
+                    <th class="status-col">连接状态</th>
+                    <th class="delay-col">延迟(ms)</th>
+                    <th class="cpu-col">CPU使用率(%)</th>
+                    <th class="memory-col">内存使用率(%)</th>
+                    <th class="disk-col">磁盘使用率(%)</th>
+                    <th class="error-col">报错信息</th>
+                </tr>
+            </thead>
+            <tbody id="vmCheckResultTableBody">
+                <!-- 检查结果将通过JavaScript动态加载 -->
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- 物理机设备状态检查结果表格 -->
+<div class="card">
+    <div class="card-header">
+        <h5>物理机设备状态检查结果</h5>
+    </div>
+    <div id="physical-table-container" class="card-body">
+        <table>
+            <thead>
+                <tr>
+                    <th class="ip-address-col">IP地址</th>
+                    <th class="status-col">连接状态</th>
+                    <th class="delay-col">延迟(ms)</th>
+                    <th class="cpu-col">CPU使用率(%)</th>
+                    <th class="memory-col">内存使用率(%)</th>
+                    <th class="disk-col">磁盘使用率(%)</th>
+                    <th class="error-col">报错信息</th>
+                </tr>
+            </thead>
+            <tbody id="physicalCheckResultTableBody">
+                <!-- 检查结果将通过JavaScript动态加载 -->
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/common.js') }}"></script>
+<script>
+    // 序列化对象为URL编码字符串
+    function serializeObject(obj) {
+        const params = [];
+        Object.keys(obj).forEach(key => {
+            params.push(encodeURIComponent(key) + '=' + encodeURIComponent(obj[key]));
+        });
+        return params.join('&');
+    }
+
+    // 并发控制参数
+    const CONCURRENCY_LIMIT = 10;
+    const BATCH_SIZE = 20;
+    const RETRY_COUNT = 1;
+
+    // 检查单个设备状态
+    function checkSingleDevice(device, isPhysical, callback) {
+        const data = isPhysical ?
+            { ip: device.ip_address, username: device.account, password: device.password } :
+            { ip: device.ip_address, username: device.username, password: device.password };
+
+        console.log('发送请求到 /api/check-device:', {
+            ip: device.ip_address,
+            username: isPhysical ? device.account : device.username,
+            password: isPhysical ? device.password : device.password,
+            isPhysical: isPhysical,
+            deviceType: isPhysical ? '物理机' : '虚拟机',
+            deviceData: device
+        });
+
+        ajax({
+            url: '/api/check-device',
+            method: 'POST',
+            data: serializeObject(data),
+            contentType: 'application/x-www-form-urlencoded'
+        }).then(function(result) {
+            console.log('从 /api/check-device 收到响应:', {
+                ip: device.ip_address,
+                result: result
+            });
+            callback(null, device, result, isPhysical);
+        }).catch(function(xhr) {
+            console.error('请求 /api/check-device 失败:', {
+                ip: device.ip_address,
+                status: xhr.status,
+                responseText: xhr.responseText
+            });
+            callback(new Error('请求失败'), device, null, isPhysical);
+        });
+    }
+
+    // 分批检查设备状态
+    function checkDevicesInBatches(devices, isPhysical, totalDevices, processedDevices, updateProgress) {
+        let tbody = isPhysical ? document.getElementById('physicalCheckResultTableBody') : document.getElementById('vmCheckResultTableBody');
+
+        tbody.innerHTML = '';
+
+        function handleDeviceResult(error, device, result, isPhysical) {
+            processedDevices++;
+
+            const progress = Math.round((processedDevices / totalDevices) * 100);
+            updateProgress(progress);
+
+            if (error) {
+                let row = '<tr>' +
+                    '<td class="ip-address-col">' + device.ip_address + '</td>' +
+                    '<td class="text-danger">检查失败</td>' +
+                    '<td>-</td>' +
+                    '<td>-</td>' +
+                    '<td>-</td>' +
+                    '<td>-</td>' +
+                    '<td class="text-danger">' + (error.message || '请求失败') + '</td>' +
+                '</tr>';
+                tbody.insertAdjacentHTML('beforeend', row);
+            } else {
+                let statusText = result.status ? '成功' : '失败';
+                let statusClass = result.status ? 'text-success' : 'text-danger';
+                let delay = result.delay !== null ? result.delay : '-';
+
+                let cpuUsage = result.cpu_usage !== null ? result.cpu_usage + '%' : '-';
+                let cpuClass = '';
+                if (result.cpu_usage !== null && result.cpu_usage > 80) {
+                    cpuClass = 'text-danger font-weight-bold';
+                }
+
+                let memoryUsage = result.memory_usage !== null ? result.memory_usage + '%' : '-';
+                let memoryClass = '';
+                if (result.memory_usage !== null && result.memory_usage > 80) {
+                    memoryClass = 'text-danger font-weight-bold';
+                }
+
+                let diskUsage = result.disk_usage !== null ? result.disk_usage + '%' : '-';
+                let diskClass = '';
+                if (result.disk_usage !== null && result.disk_usage > 80) {
+                    diskClass = 'text-danger font-weight-bold';
+                }
+
+                let errorText = '-';
+                let errorClass = '';
+                if ((result.ssh_status === 'failed' || result.ssh_status === 'skipped') && result.ssh_error) {
+                    errorText = result.ssh_error;
+                    errorClass = 'text-danger';
+                } else if (result.ssh_status === 'success') {
+                    errorText = '无';
+                }
+
+                let row = '<tr>' +
+                    '<td class="ip-address-col">' + device.ip_address + '</td>' +
+                    '<td class="' + statusClass + '">' + statusText + '</td>' +
+                    '<td>' + delay + '</td>' +
+                    '<td class="' + cpuClass + '">' + cpuUsage + '</td>' +
+                    '<td class="' + memoryClass + '">' + memoryUsage + '</td>' +
+                    '<td class="' + diskClass + '">' + diskUsage + '</td>' +
+                    '<td class="' + errorClass + '">' + errorText + '</td>' +
+                '</tr>';
+                tbody.insertAdjacentHTML('beforeend', row);
+            }
+        }
+
+        function processBatch(batch) {
+            return new Promise((resolve) => {
+                let completed = 0;
+                const batchSize = batch.length;
+
+                batch.forEach((device, index) => {
+                    setTimeout(() => {
+                        checkSingleDevice(device, isPhysical, (error, device, result) => {
+                            handleDeviceResult(error, device, result, isPhysical);
+                            completed++;
+                            if (completed === batchSize) {
+                                resolve();
+                            }
+                        });
+                    }, (index % CONCURRENCY_LIMIT) * 200);
+                });
+            });
+        }
+
+        async function processAllBatches() {
+            for (let i = 0; i < devices.length; i += BATCH_SIZE) {
+                const batch = devices.slice(i, i + BATCH_SIZE);
+                await processBatch(batch);
+                await new Promise(resolve => setTimeout(resolve, 1000));
+            }
+        }
+
+        processAllBatches().catch(error => {
+            console.error('处理设备时出错:', error);
+        });
+    }
+
+    // 检查虚拟机设备状态
+    function checkVMs(totalDevicesCallback, updateProgress) {
+        ajax({
+            url: '/api/devices-for-monitor',
+            method: 'GET'
+        }).then(function(vms) {
+            totalDevicesCallback(vms.length);
+            checkDevicesInBatches(vms, false, vms.length, 0, updateProgress);
+        }).catch(function() {
+            alert('获取虚拟机列表失败');
+            totalDevicesCallback(0);
+        });
+    }
+
+    // 检查物理机设备状态
+    function checkPhysicalDevices(totalDevicesCallback, updateProgress) {
+        ajax({
+            url: '/api/physical-devices-for-monitor',
+            method: 'GET'
+        }).then(function(physicalDevices) {
+            totalDevicesCallback(physicalDevices.length);
+            checkDevicesInBatches(physicalDevices, true, physicalDevices.length, 0, updateProgress);
+        }).catch(function() {
+            alert('获取物理机列表失败');
+            totalDevicesCallback(0);
+        });
+    }
+
+    // 检查设备状态
+    function checkDeviceStatus() {
+        document.getElementById('checkButton').disabled = true;
+        document.getElementById('checkProgress').style.display = 'block';
+        const progressBar = document.getElementById('progressBar');
+        progressBar.style.width = '0%';
+        progressBar.textContent = '0%';
+
+        let totalDevices = 0;
+        let processedDevices = 0;
+        let deviceTypesProcessed = 0;
+        const totalDeviceTypes = 2;
+
+        function updateProgress(progress) {
+            progressBar.style.width = progress + '%';
+            progressBar.textContent = progress + '%';
+        }
+
+        function handleComplete() {
+            deviceTypesProcessed++;
+            if (deviceTypesProcessed === totalDeviceTypes) {
+                setTimeout(() => {
+                    document.getElementById('checkButton').disabled = false;
+                    document.getElementById('checkProgress').style.display = 'none';
+                }, 1000);
+            }
+        }
+
+        checkVMs(function(vmCount) {
+            totalDevices += vmCount;
+            handleComplete();
+        }, updateProgress);
+
+        checkPhysicalDevices(function(physicalCount) {
+            totalDevices += physicalCount;
+            handleComplete();
+        }, updateProgress);
+    }
+</script>
+{% endblock %}

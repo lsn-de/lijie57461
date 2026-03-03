@@ -1,0 +1,415 @@
+{% extends "base.html" %}
+
+{% block title %}账号管理 - 设备管理系统{% endblock %}
+
+{% block page_id %}user_management{% endblock %}
+
+{% block extra_css %}
+<!-- 自定义样式 -->
+<style>
+    .password-group {
+        position: relative;
+    }
+
+    .toggle-password {
+        position: absolute;
+        right: 15px;
+        top: 50%;
+        transform: translateY(-50%);
+        cursor: pointer;
+        color: #6c757d;
+        font-size: 16px;
+    }
+
+    .toggle-password:hover {
+        color: #495057;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- 功能按钮区域 -->
+<div class="action-buttons">
+    <button type="button" class="btn btn-primary" onclick="openModal('addUserModal')">
+        添加用户
+    </button>
+
+    <button type="button" class="btn btn-info" onclick="loadUsers()">
+        刷新数据
+    </button>
+</div>
+
+<!-- 提示信息 -->
+<div class="alert alert-warning" role="alert">
+    <strong>提示：</strong>修改角色和所属部门后，需要重新登录才能生效
+</div>
+
+<!-- 用户列表表格 -->
+<div class="card">
+    <div class="card-header">
+        <h5>用户列表</h5>
+    </div>
+    <div id="table-container" class="card-body">
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>用户名</th>
+                    <th>角色</th>
+                    <th>所属部门</th>
+                    <th>创建时间</th>
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody id="userTableBody">
+                <!-- 用户数据将通过JavaScript动态加载 -->
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- 添加用户模态框 -->
+<div class="modal fade" id="addUserModal" tabindex="-1" aria-labelledby="addUserModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="addUserModalLabel">添加用户</h5>
+            </div>
+            <form id="addUserForm">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="addUsername" class="form-label">用户名</label>
+                        <input type="text" class="form-control" id="addUsername" name="username" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="addPassword" class="form-label">密码</label>
+                        <div class="password-group">
+                            <input type="password" class="form-control" id="addPassword" name="password" required>
+                            <span class="toggle-password" id="toggleAddPassword">👁️</span>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="addRole" class="form-label">角色</label>
+                        <select class="form-control" id="addRole" name="role_id" required>
+                            <option value="">请选择角色</option>
+                            <option value="1">管理员</option>
+                            <option value="2">普通用户</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="addDepartment" class="form-label">所属部门</label>
+                        <select class="form-control" id="addDepartment" name="department">
+                            <option value="">请选择部门</option>
+                            <!-- 部门选项将通过JavaScript动态加载 -->
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('addUserModal')">取消</button>
+                    <button type="button" class="btn btn-primary" onclick="addUser()">添加</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- 编辑用户模态框 -->
+<div class="modal fade" id="editUserModal" tabindex="-1" aria-labelledby="editUserModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editUserModalLabel">编辑用户</h5>
+            </div>
+            <form id="editUserForm">
+                <div class="modal-body">
+                    <input type="hidden" id="editUserId" name="id">
+                    <div class="mb-3">
+                        <label for="editUsername" class="form-label">用户名</label>
+                        <input type="text" class="form-control" id="editUsername" name="username" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editPassword" class="form-label">密码</label>
+                        <div class="password-group">
+                            <input type="password" class="form-control" id="editPassword" name="password" placeholder="留空则不修改密码">
+                            <span class="toggle-password" id="toggleEditPassword">👁️</span>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editRole" class="form-label">角色</label>
+                        <select class="form-control" id="editRole" name="role_id" required>
+                            <option value="1">管理员</option>
+                            <option value="2">普通用户</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editDepartment" class="form-label">所属部门</label>
+                        <select class="form-control" id="editDepartment" name="department">
+                            <option value="">请选择部门</option>
+                            <!-- 部门选项将通过JavaScript动态加载 -->
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('editUserModal')">取消</button>
+                    <button type="button" class="btn btn-primary" onclick="updateUser()">保存</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // 加载部门列表
+    function loadDepartments() {
+        fetch('/api/departments')
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(departments => {
+                const addDepartmentSelect = document.getElementById('addDepartment');
+                if (addDepartmentSelect) {
+                    while (addDepartmentSelect.options.length > 1) {
+                        addDepartmentSelect.remove(1);
+                    }
+
+                    departments.forEach(function(department) {
+                        const option = document.createElement('option');
+                        option.value = department;
+                        option.textContent = department;
+                        addDepartmentSelect.appendChild(option);
+                    });
+                }
+
+                const editDepartmentSelect = document.getElementById('editDepartment');
+                if (editDepartmentSelect) {
+                    while (editDepartmentSelect.options.length > 1) {
+                        editDepartmentSelect.remove(1);
+                    }
+
+                    departments.forEach(function(department) {
+                        const option = document.createElement('option');
+                        option.value = department;
+                        option.textContent = department;
+                        editDepartmentSelect.appendChild(option);
+                    });
+                }
+            })
+            .catch(error => {
+                console.error('加载部门列表失败:', error);
+                alert('加载部门列表失败: ' + error.message);
+            });
+    }
+
+    // 页面加载完成后加载用户列表
+    document.addEventListener('DOMContentLoaded', function() {
+        loadUsers();
+        loadDepartments();
+
+        const toggleAddPassword = document.getElementById('toggleAddPassword');
+        const addPasswordInput = document.getElementById('addPassword');
+
+        if (toggleAddPassword && addPasswordInput) {
+            toggleAddPassword.addEventListener('click', function() {
+                const type = addPasswordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+                addPasswordInput.setAttribute('type', type);
+                this.textContent = type === 'password' ? '👁️' : '🚫';
+            });
+        }
+
+        const toggleEditPassword = document.getElementById('toggleEditPassword');
+        const editPasswordInput = document.getElementById('editPassword');
+
+        if (toggleEditPassword && editPasswordInput) {
+            toggleEditPassword.addEventListener('click', function() {
+                const type = editPasswordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+                editPasswordInput.setAttribute('type', type);
+                this.textContent = type === 'password' ? '👁️' : '🚫';
+            });
+        }
+    });
+
+    // 加载用户列表
+    function loadUsers() {
+        fetch('/api/users')
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                displayUsers(data);
+            })
+            .catch(error => {
+                console.error('加载用户列表失败:', error);
+                alert('加载用户列表失败: ' + error.message);
+            });
+    }
+
+    // 显示用户列表
+    function displayUsers(users) {
+        let tbody = document.getElementById('userTableBody');
+        tbody.innerHTML = '';
+
+        if (users.length === 0) {
+            let row = '<tr><td colspan="6" class="text-center">暂无用户数据</td></tr>';
+            tbody.insertAdjacentHTML('beforeend', row);
+            return;
+        }
+
+        users.forEach(function(user) {
+            let department = user.department || '无';
+
+            let row = '<tr>' +
+                '<td>' + user.id + '</td>' +
+                '<td>' + user.username + '</td>' +
+                '<td>' + user.role_name + '</td>' +
+                '<td>' + department + '</td>' +
+                '<td>' + user.created_at + '</td>' +
+                '<td>' +
+                    '<button class="btn btn-primary me-1" onclick="editUser(' + user.id + ')">修改</button>' +
+                    (user.username !== 'admin' ? '<button class="btn btn-danger" onclick="deleteUser(' + user.id + ')">删除</button>' : '') +
+                '</td>' +
+            '</tr>';
+            tbody.insertAdjacentHTML('beforeend', row);
+        });
+    }
+
+    // 打开模态框
+    function openModal(modalId) {
+        const modal = document.getElementById(modalId);
+        modal.style.display = 'flex';
+        modal.classList.add('show');
+        document.body.classList.add('modal-open');
+    }
+
+    // 关闭模态框
+    function closeModal(modalId) {
+        const modal = document.getElementById(modalId);
+        if (modal) {
+            modal.style.display = 'none';
+            modal.classList.remove('show');
+        }
+        document.body.classList.remove('modal-open');
+    }
+
+    // 编辑用户
+    function editUser(userId) {
+        fetch('/api/users/' + userId)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                document.getElementById('editUserId').value = data.id;
+                document.getElementById('editUsername').value = data.username;
+                document.getElementById('editPassword').value = '';
+                document.getElementById('editRole').value = data.role_id;
+                document.getElementById('editDepartment').value = data.department || '';
+                openModal('editUserModal');
+            })
+            .catch(error => {
+                console.error('获取用户信息失败:', error);
+                alert('获取用户信息失败: ' + error.message);
+            });
+    }
+
+    // 删除用户
+    function deleteUser(userId) {
+        if (confirm('确定要删除该用户吗？')) {
+            fetch('/api/users/' + userId, {
+                method: 'DELETE'
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                alert(data.message);
+                loadUsers();
+            })
+            .catch(error => {
+                console.error('删除用户失败:', error);
+                alert('删除用户失败: ' + error.message);
+            });
+        }
+    }
+
+    // 添加用户表单提交
+    function addUser() {
+        const form = document.getElementById('addUserForm');
+        const formData = new FormData(form);
+        const data = Object.fromEntries(formData.entries());
+
+        fetch('/api/users', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(data)
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            alert(data.message);
+            closeModal('addUserModal');
+            form.reset();
+            loadUsers();
+        })
+        .catch(error => {
+            console.error('添加用户失败:', error);
+            alert('添加用户失败: ' + error.message);
+        });
+    }
+
+    // 编辑用户表单提交
+    function updateUser() {
+        const form = document.getElementById('editUserForm');
+        const formData = new FormData(form);
+        const data = Object.fromEntries(formData.entries());
+
+        fetch('/api/users/' + data.id, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(data)
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            alert(data.message);
+            closeModal('editUserModal');
+            loadUsers();
+        })
+        .catch(error => {
+            console.error('编辑用户失败:', error);
+            alert('编辑用户失败: ' + error.message);
+        });
+    }
+
+    // 点击模态框外部关闭
+    window.onclick = function(event) {
+        if (event.target.classList.contains('modal')) {
+            event.target.style.display = 'none';
+        }
+    }
+</script>
+{% endblock %}
