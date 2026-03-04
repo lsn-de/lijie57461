@@ -10,13 +10,26 @@ import sqlite3
 import sys
 import datetime
 
+# 获取资源目录（打包后的资源目录）
+def get_resource_dir():
+    if getattr(sys, 'frozen', False):
+        # 打包后的可执行文件
+        return sys._MEIPASS
+    else:
+        # 未打包的脚本
+        return os.path.dirname(os.path.abspath(__file__))
+
 # 获取持久化目录的函数 - 统一使用项目目录下的data文件夹
 def get_persist_dir():
     """获取持久化目录 - 统一使用项目目录下的data文件夹"""
-    # 获取当前文件所在目录（EMS1.4/）
-    current_dir = os.path.dirname(os.path.abspath(__file__))
+    if getattr(sys, 'frozen', False):
+        # 打包后的可执行文件
+        executable_dir = os.path.dirname(sys.executable)
+    else:
+        # 未打包的脚本
+        executable_dir = os.path.dirname(os.path.abspath(__file__))
     # 使用项目目录下的data文件夹
-    persist_dir = os.path.join(current_dir, 'data')
+    persist_dir = os.path.join(executable_dir, 'data')
 
     # 确保持久化目录存在
     os.makedirs(persist_dir, exist_ok=True)
@@ -24,8 +37,39 @@ def get_persist_dir():
 
 # 数据库文件路径
 DB_FILE = os.path.join(get_persist_dir(), 'device_management.db')
-# 备份目录
-BACKUP_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data', 'backups')
+# 备份目录 - 使用data/backups作为备份目标
+BACKUP_DIR = os.path.join(get_persist_dir(), 'backups')
+
+# 从打包的资源中提取数据库文件（仅在打包环境下执行）
+def extract_database_from_bundle():
+    # 如果不是打包环境，直接返回False
+    if not getattr(sys, 'frozen', False):
+        return False
+    
+    persist_dir = get_persist_dir()
+    db_path = os.path.join(persist_dir, 'device_management.db')
+    init_flag_path = os.path.join(persist_dir, 'init_done.flag')
+    
+    # 如果数据库文件不存在，从打包的资源中提取
+    if not os.path.exists(db_path) or not os.path.exists(init_flag_path):
+        print("首次运行，从打包资源中提取数据库文件...")
+        resource_dir = get_resource_dir()
+        bundled_db_path = os.path.join(resource_dir, 'data', 'device_management.db')
+        
+        if os.path.exists(bundled_db_path):
+            print(f"从 {bundled_db_path} 复制数据库文件到 {db_path}")
+            shutil.copy2(bundled_db_path, db_path)
+            print("数据库文件提取成功")
+            
+            # 创建标志文件
+            with open(init_flag_path, 'w') as f:
+                f.write('初始化完成')
+            print(f"创建初始化标志文件成功: {init_flag_path}")
+        else:
+            print(f"警告: 打包资源中未找到数据库文件: {bundled_db_path}")
+            return False
+    
+    return True
 
 def list_backups():
     """
@@ -64,6 +108,18 @@ def list_backups():
         print(f"错误: 列出备份文件失败 - {str(e)}")
         return []
 
+def check_db_access():
+    """
+    检查数据库文件是否可访问（未被锁定）
+    """
+    try:
+        conn = sqlite3.connect(DB_FILE)
+        conn.close()
+        return True
+    except Exception as e:
+        print(f"错误: 数据库文件被锁定或无法访问 - {str(e)}")
+        return False
+
 def restore_from_backup(backup_file):
     """
     从指定的备份文件恢复数据
@@ -82,31 +138,60 @@ def restore_from_backup(backup_file):
             return False
         
         # 确保数据目录存在
-        os.makedirs('data', exist_ok=True)
+        os.makedirs(get_persist_dir(), exist_ok=True)
+        
+        # 在打包环境下，确保数据库文件存在
+        extract_database_from_bundle()
+        
+        # 检查目标数据库文件是否可访问（未被锁定）
+        if os.path.exists(DB_FILE) and not check_db_access():
+            return False
         
         # 备份当前数据库（如果存在）
         if os.path.exists(DB_FILE):
-            timestamp = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
-            current_backup = os.path.join(BACKUP_DIR, f'current_{timestamp}.db')
-            shutil.copy2(DB_FILE, current_backup)
-            print(f"已备份当前数据库到: {current_backup}")
+            try:
+                timestamp = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
+                current_backup = os.path.join(BACKUP_DIR, f'current_{timestamp}.db')
+                shutil.copy2(DB_FILE, current_backup)
+                print(f"已备份当前数据库到: {current_backup}")
+            except Exception as e:
+                print(f"警告: 备份当前数据库失败 - {str(e)}")
+                # 继续执行恢复操作
         
         # 恢复备份
-        shutil.copy2(backup_path, DB_FILE)
+        try:
+            shutil.copy2(backup_path, DB_FILE)
+        except Exception as e:
+            print(f"错误: 复制文件失败 - {str(e)}")
+            return False
         
         # 验证恢复是否成功
-        if os.path.exists(DB_FILE):
-            print("\n恢复成功！")
-            print(f"从备份文件: {backup_file}")
-            print(f"恢复到: {DB_FILE}")
-            
-            # 检查恢复后的数据
-            check_backup_integrity(DB_FILE)
-            
-            return True
-        else:
+        if not os.path.exists(DB_FILE):
             print("错误: 恢复失败")
             return False
+        
+        # 验证文件大小是否一致
+        try:
+            backup_size = os.path.getsize(backup_path)
+            restored_size = os.path.getsize(DB_FILE)
+            
+            if backup_size != restored_size:
+                print(f"错误: 恢复文件大小与备份文件不一致（备份文件: {backup_size} 字节，恢复文件: {restored_size} 字节）")
+                return False
+        except Exception as e:
+            print(f"错误: 验证文件大小失败 - {str(e)}")
+            return False
+        
+        print("\n恢复成功！")
+        print(f"从备份文件: {backup_file}")
+        print(f"恢复到: {DB_FILE}")
+        print(f"文件大小验证: 备份文件与恢复文件大小一致")
+        
+        # 检查恢复后的数据
+        if not check_backup_integrity(DB_FILE):
+            print("警告: 恢复文件完整性检查失败")
+        
+        return True
             
     except Exception as e:
         print(f"错误: 恢复失败 - {str(e)}")

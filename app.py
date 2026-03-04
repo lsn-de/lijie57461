@@ -16,10 +16,14 @@ from routes.department import department_bp
 # 获取持久化目录的公共函数
 def get_persist_dir():
     """获取持久化目录 - 统一使用项目目录下的data文件夹"""
-    # 获取当前文件所在目录（EMS1.4/）
-    current_dir = os.path.dirname(os.path.abspath(__file__))
+    if getattr(sys, 'frozen', False):
+        # 打包后的可执行文件
+        executable_dir = os.path.dirname(sys.executable)
+    else:
+        # 未打包的脚本
+        executable_dir = os.path.dirname(os.path.abspath(__file__))
     # 使用项目目录下的data文件夹
-    persist_dir = os.path.join(current_dir, 'data')
+    persist_dir = os.path.join(executable_dir, 'data')
 
     # 确保持久化目录存在
     os.makedirs(persist_dir, exist_ok=True)
